@@ -1,0 +1,6 @@
+{
+  "name": "صلاتي",
+  "description": "تطبيق صلاتي الإسلامي الشامل: مواقيت الصلاة والأذان، اتجاه القبلة، القرآن الكريم والتلاوات، الأحاديث النبوية، التقويم الهجري، المسبحة الإلكترونية، وقسم المعرفة الإسلامية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

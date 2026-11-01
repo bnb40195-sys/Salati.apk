@@ -1,0 +1,160 @@
+name: Build & Release Android Debug APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish as GitHub Release with downloadable APK'
+        required: true
+        type: boolean
+        default: true
+      release_tag:
+        description: 'Release tag (leave empty for automatic tag)'
+        required: false
+        type: string
+        default: 'v1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Prepare Keystore and Environment
+        run: |
+          echo "Setting up debug signing keystore..."
+          if [ -f "debug.keystore.base64" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+            echo "Successfully restored debug.keystore from base64."
+          elif [ ! -f "debug.keystore" ]; then
+            echo "Generating fallback debug keystore..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+            echo "Creating .env from .env.example..."
+            cp .env.example .env
+          fi
+
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Prepare APK Artifacts for Download
+        id: prepare_apk
+        run: |
+          mkdir -p release_assets
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "Error: APK file not found!"
+            exit 1
+          fi
+
+          # Output filename
+          DATE_STR=$(date +'%Y%m%d')
+          OUTPUT_APK="release_assets/Salati-PrayerTimes-Debug.apk"
+          VERSIONED_APK="release_assets/Salati-v1.0-${DATE_STR}-debug.apk"
+          
+          cp "$APK_PATH" "$OUTPUT_APK"
+          cp "$APK_PATH" "$VERSIONED_APK"
+          
+          # Generate SHA256 Checksums
+          cd release_assets
+          sha256sum Salati-PrayerTimes-Debug.apk > checksums.txt
+          sha256sum "$(basename "$VERSIONED_APK")" >> checksums.txt
+          cd ..
+          
+          echo "APK generated successfully at: $OUTPUT_APK"
+          echo "apk_path=$OUTPUT_APK" >> $GITHUB_OUTPUT
+          echo "versioned_apk=$VERSIONED_APK" >> $GITHUB_OUTPUT
+
+      - name: Upload APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Salati-Debug-APK
+          path: |
+            release_assets/*.apk
+            release_assets/checksums.txt
+          retention-days: 30
+
+      - name: Determine Release Tag
+        id: release_info
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v1.0-debug"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create or Update GitHub Release
+        if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.event.inputs.create_release == 'true')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: "صلاتي - Salati Android App (${{ steps.release_info.outputs.tag }})"
+          body: |
+            ### 🕌 صلاتي • تطبيق مواقيت الصلاة والأذكار والقرآن الكريم
+            
+            تم بناء ملف الـ APK التجريبي (Debug APK) تلقائياً وجاهز للتحميل والتثبيت المباشر على جميع هواتف أندرويد.
+            
+            #### 📥 روابط التحميل المباشرة:
+            * **[تحميل تطبيق صلاتي (Salati-PrayerTimes-Debug.apk)](https://github.com/${{ github.repository }}/releases/download/${{ steps.release_info.outputs.tag }}/Salati-PrayerTimes-Debug.apk)**
+            
+            ---
+            #### 📱 مميزات التطبيق:
+            - **مواقيت الصلاة الدقيقة** حساب محلي فلكي دقيق 100% بدون إنترنت لجميع المدن والدول.
+            - **ويدجت سطح المكتب للهاتف (Home Screen Widget)** يعمل خارج التطبيق مع ساعة حية وتحديث مستمر ودرجة الحرارة.
+            - **نظام التوقيت** دعم الاختيار بين نظام 12 ساعة (ص/م) و 24 ساعة لجميع الشاشات والويدجت.
+            - **تنبيهات وأذان الصلاة** تنبيه صوتي بالآية الكريمة قبل الصلاة وتذكير الإقامة وصلاة الجمعة.
+            - **قسم تذكير الصلاة والأذكار الشامل** أذكار ما بعد الصلاة والصباح والمساء مع عداد تفاعلي.
+            - **القرآن الكريم والسنة النبوية** قراءة واستماع لمشاهير القراء مع فاصل القراءة.
+            - **بوصلة القبلة الدقيقة والتقويم الهجري والميلادي**.
+            
+            #### ⚙️ طريقة التثبيت على الهاتف:
+            1. حمل ملف `Salati-PrayerTimes-Debug.apk` مباشرة إلى هاتفك.
+            2. افتح الملف واضغط على "تثبيت" (Install).
+            3. إذا ظهرت رسالة أمان (تثبيت تطبيقات غير معروفة / Install unknown apps)، وافق على المتابعة.
+            
+            **بصمة التحقق (SHA-256 Checksum):**
+            راجع ملف `checksums.txt` المرفق للتحقق من سلامة الملف.
+          files: |
+            release_assets/Salati-PrayerTimes-Debug.apk
+            release_assets/Salati-v1.0-*-debug.apk
+            release_assets/checksums.txt
+          draft: false
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
