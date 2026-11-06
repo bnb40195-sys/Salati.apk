@@ -34,6 +34,8 @@ fun UnifiedQuestionsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    androidx.activity.compose.BackHandler(onBack = onBack)
+
     var selectedTab by remember { mutableStateOf(initialTab) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedReligiousCategory by remember { mutableStateOf("الكل") }

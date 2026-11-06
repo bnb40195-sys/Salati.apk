@@ -36,6 +36,8 @@ fun UnifiedInventionsBattlesScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    androidx.activity.compose.BackHandler(onBack = onBack)
+
     var selectedTab by remember { mutableStateOf(initialTab) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedBattleFilter by remember { mutableStateOf("الكل") }

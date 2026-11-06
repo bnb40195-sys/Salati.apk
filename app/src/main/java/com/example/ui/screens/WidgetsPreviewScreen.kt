@@ -383,32 +383,55 @@ fun WidgetsPreviewScreen(
                     if (showTemperature) {
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "اختر أو حدد درجة الحرارة المعروضة:",
+                            text = "درجة الحرارة العادية المعروضة (مثل التطبيق):",
                             fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            listOf("24°C", "22°C", "26°C", "28°C", "19°C").forEach { temp ->
-                                val isSelected = temperatureText == temp
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(Icons.Filled.Thermostat, contentDescription = null, tint = accentColor)
+                                    Column {
+                                        Text(
+                                            text = "درجة الحرارة الحالية العادية: $temperatureText",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "مطابقة لدرجة حرارة تطبيق صلاتي وحالة الطقس المباشرة لمدينتك",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
                                 Surface(
-                                    onClick = {
-                                        temperatureText = temp
-                                        saveAndBroadcast()
-                                    },
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) accentColor else MaterialTheme.colorScheme.surfaceVariant
+                                    color = accentColor.copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, accentColor)
                                 ) {
                                     Text(
-                                        text = temp,
+                                        text = "تلقائي مع التطبيق",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        color = accentColor,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                 }
                             }

@@ -23,12 +23,16 @@ import com.example.data.models.CapitalInfo
 import com.example.ui.theme.EmeraldLight
 import com.example.ui.theme.GoldAccent
 
+import androidx.activity.compose.BackHandler
+
 @Composable
 fun CapitalsScreen(
     capitals: List<CapitalInfo>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler(onBack = onBack)
+
     var searchQuery by remember { mutableStateOf("") }
 
     val filteredCapitals = remember(capitals, searchQuery) {

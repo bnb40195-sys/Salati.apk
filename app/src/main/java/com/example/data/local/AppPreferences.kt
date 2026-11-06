@@ -221,8 +221,8 @@ class AppPreferences(private val context: Context) {
     private val _appBackgroundTheme = MutableStateFlow(prefs.getString("bg_theme", "emerald") ?: "emerald")
     val appBackgroundTheme: StateFlow<String> = _appBackgroundTheme.asStateFlow()
 
-    // Creator / Developer Account
-    private val _developerEmail = MutableStateFlow(prefs.getString("developer_email", "bnb40195@gmail.com") ?: "bnb40195@gmail.com")
+    // Creator / Developer Account (Locked strictly unless email is bnb40195@sat and answer is صلاتي)
+    private val _developerEmail = MutableStateFlow(prefs.getString("developer_email", "bnb40195@sat") ?: "bnb40195@sat")
     val developerEmail: StateFlow<String> = _developerEmail.asStateFlow()
 
     private val _developerSecurityQuestion = MutableStateFlow("ما هو اسم التطبيق الأساسي؟")
@@ -233,6 +233,21 @@ class AppPreferences(private val context: Context) {
 
     private val _isDeveloperUnlocked = MutableStateFlow(prefs.getBoolean("dev_unlocked", false))
     val isDeveloperUnlocked: StateFlow<Boolean> = _isDeveloperUnlocked.asStateFlow()
+
+    // Google Account Registration / Sign-In
+    private val _googleAccountEmail = MutableStateFlow(prefs.getString("google_account_email", "bnb40195@gmail.com") ?: "bnb40195@gmail.com")
+    val googleAccountEmail: StateFlow<String> = _googleAccountEmail.asStateFlow()
+
+    private val _isGoogleSignedIn = MutableStateFlow(prefs.getBoolean("google_signed_in", true))
+    val isGoogleSignedIn: StateFlow<Boolean> = _isGoogleSignedIn.asStateFlow()
+
+    // Athkar Reminder Mode: "both" (voice & text), "voice", "text"
+    private val _athkarReminderMode = MutableStateFlow(prefs.getString("athkar_reminder_mode", "both") ?: "both")
+    val athkarReminderMode: StateFlow<String> = _athkarReminderMode.asStateFlow()
+
+    // Quick Start / Fast App Entry
+    private val _quickStartEnabled = MutableStateFlow(prefs.getBoolean("quick_start_enabled", true))
+    val quickStartEnabled: StateFlow<Boolean> = _quickStartEnabled.asStateFlow()
 
     // Widget & UI Customization Preferences
     private val _widgetAccentColor = MutableStateFlow(prefs.getString("widget_accent", "orange") ?: "orange")
@@ -269,6 +284,34 @@ class AppPreferences(private val context: Context) {
     // App Language & Font Preferences
     private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "ar") ?: "ar")
     val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
+
+    // Digit Format: "western" (1234) or "eastern" (١٢٣٤ - أرقام جوجل)
+    private val _digitType = MutableStateFlow(prefs.getString("digit_type", "western") ?: "western")
+    val digitType: StateFlow<String> = _digitType.asStateFlow()
+
+    fun setDigitType(type: String) {
+        _digitType.value = type
+        prefs.edit().putString("digit_type", type).apply()
+        com.example.widget.PrayerAppWidgetProvider.updateAllWidgets(context)
+    }
+
+    // Ongoing Notification in Notification Center
+    private val _ongoingPrayerNotification = MutableStateFlow(prefs.getBoolean("ongoing_prayer_notification", true))
+    val ongoingPrayerNotification: StateFlow<Boolean> = _ongoingPrayerNotification.asStateFlow()
+
+    fun setOngoingPrayerNotification(enabled: Boolean) {
+        _ongoingPrayerNotification.value = enabled
+        prefs.edit().putBoolean("ongoing_prayer_notification", enabled).apply()
+    }
+
+    // Auto GPS Location on entry
+    private val _autoGpsLocation = MutableStateFlow(prefs.getBoolean("auto_gps_location", true))
+    val autoGpsLocation: StateFlow<Boolean> = _autoGpsLocation.asStateFlow()
+
+    fun setAutoGpsLocation(enabled: Boolean) {
+        _autoGpsLocation.value = enabled
+        prefs.edit().putBoolean("auto_gps_location", enabled).apply()
+    }
 
     private val _appFontFamily = MutableStateFlow(prefs.getString("app_font_family", "cairo") ?: "cairo")
     val appFontFamily: StateFlow<String> = _appFontFamily.asStateFlow()
@@ -644,6 +687,42 @@ class AppPreferences(private val context: Context) {
     fun setDeveloperUnlocked(unlocked: Boolean) {
         prefs.edit().putBoolean("dev_unlocked", unlocked).apply()
         _isDeveloperUnlocked.value = unlocked
+    }
+
+    fun checkAndUnlockDeveloper(email: String, answer: String): Boolean {
+        val cleanEmail = email.trim()
+        val cleanAnswer = answer.trim()
+        val isMatch = cleanEmail.equals("bnb40195@sat", ignoreCase = true) && (cleanAnswer == "صلاتي")
+        setDeveloperUnlocked(isMatch)
+        return isMatch
+    }
+
+    fun setPostPrayerDelayMinutes(mins: Int) {
+        prefs.edit().putInt("post_prayer_delay_mins", mins).apply()
+        _postPrayerDelayMinutes.value = mins
+    }
+
+    fun lockDeveloper() {
+        setDeveloperUnlocked(false)
+    }
+
+    fun setGoogleAccount(email: String, signedIn: Boolean) {
+        prefs.edit()
+            .putString("google_account_email", email.trim())
+            .putBoolean("google_signed_in", signedIn)
+            .apply()
+        _googleAccountEmail.value = email.trim()
+        _isGoogleSignedIn.value = signedIn
+    }
+
+    fun setAthkarReminderMode(mode: String) {
+        prefs.edit().putString("athkar_reminder_mode", mode).apply()
+        _athkarReminderMode.value = mode
+    }
+
+    fun setQuickStartEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("quick_start_enabled", enabled).apply()
+        _quickStartEnabled.value = enabled
     }
 
     fun setWidgetAccentColor(colorName: String) {

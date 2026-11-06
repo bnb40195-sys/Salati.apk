@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -82,7 +83,11 @@ fun HomeScreen(
     onOpenUnifiedAdhanReminder: () -> Unit = {},
     onOpenUnifiedQuranSunnah: () -> Unit = {},
     onOpenCreatorStudio: () -> Unit = {},
+    onOpenAlertsAndReminders: () -> Unit = {},
     timeFormat: String = "12h",
+    digitType: String = "western",
+    onDetectLocationGps: () -> Unit = {},
+    isGpsDetecting: Boolean = false,
     sections: List<AppSectionModel> = emptyList(),
     currentWallpaper: WallpaperModel? = null,
     modifier: Modifier = Modifier
@@ -127,14 +132,20 @@ fun HomeScreen(
     val remHours = remainingSeconds / 3600
     val remMinutes = (remainingSeconds % 3600) / 60
     val remSecs = remainingSeconds % 60
-    val formattedCountdown = String.format("%02d:%02d:%02d", remHours, remMinutes, remSecs)
+    val rawCountdown = String.format("%02d:%02d:%02d", remHours, remMinutes, remSecs)
+    val formattedCountdown = com.example.data.services.DigitFormatter.format(rawCountdown, digitType)
 
     val timeFormatter = remember(timeFormat) {
         if (timeFormat == "24h") SimpleDateFormat("HH:mm", Locale.getDefault())
         else SimpleDateFormat("hh:mm a", Locale("ar"))
     }
     val dateFormatter = remember { SimpleDateFormat("EEEE, d MMMM yyyy", Locale("ar")) }
-    val gregorianDateStr = remember(currentTimeMillis) { dateFormatter.format(Date(currentTimeMillis)) }
+    val gregorianDateStr = remember(currentTimeMillis, digitType) {
+        com.example.data.services.DigitFormatter.format(dateFormatter.format(Date(currentTimeMillis)), digitType)
+    }
+    val formattedHijriDate = remember(hijriDate, digitType) {
+        com.example.data.services.DigitFormatter.format(hijriDate.formattedAr, digitType)
+    }
 
     IslamicPatternBackground(
         modifier = modifier.fillMaxSize(),
@@ -183,42 +194,83 @@ fun HomeScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top row: City picker button & Hijri date
+                    // Top row: City picker button & GPS button & Drawer
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            onClick = onOpenCitySelector,
-                            shape = RoundedCornerShape(20.dp),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                            tonalElevation = 4.dp,
-                            modifier = Modifier.testTag("city_selector_button")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Surface(
+                                onClick = onOpenCitySelector,
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                tonalElevation = 4.dp,
+                                modifier = Modifier.testTag("city_selector_button")
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LocationOn,
-                                    contentDescription = "Location",
-                                    tint = GoldAccent,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = "${selectedCity.nameAr}",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Icon(
-                                    imageVector = Icons.Filled.KeyboardArrowDown,
-                                    contentDescription = "Select City",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.LocationOn,
+                                        contentDescription = "Location",
+                                        tint = GoldAccent,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = selectedCity.nameAr,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Filled.KeyboardArrowDown,
+                                        contentDescription = "Select City",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+                            }
+
+                            // GPS Auto Detect Button
+                            Surface(
+                                onClick = onDetectLocationGps,
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                                tonalElevation = 4.dp,
+                                modifier = Modifier.testTag("gps_header_detect_button")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (isGpsDetecting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            color = MaterialTheme.colorScheme.onPrimary,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Filled.MyLocation,
+                                            contentDescription = "GPS",
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "GPS",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
                             }
                         }
 
@@ -274,7 +326,7 @@ fun HomeScreen(
                     // Bottom of hero: Dates & greeting
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = hijriDate.formattedAr,
+                            text = formattedHijriDate,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = GoldAccentLight
@@ -445,7 +497,7 @@ fun HomeScreen(
                                 Column {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text(
-                                            text = "${weatherInfo.temperatureC.toInt()}°م",
+                                            text = com.example.data.services.DigitFormatter.format("${weatherInfo.temperatureC.toInt()}°م", digitType),
                                             fontSize = 24.sp,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -463,33 +515,166 @@ fun HomeScreen(
                                             )
                                         }
                                     }
-                                    Text(
-                                        text = "${selectedCity.nameAr} • درجة الحرارة الحالية",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "${selectedCity.nameAr} • ",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = if (weatherInfo.isOnline) "🌐 مباشر (إنترنت)" else "📡 محلي فلكي",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (weatherInfo.isOnline) Color(0xFF10B981) else GoldAccent
+                                        )
+                                    }
                                 }
                             }
 
-                            // Temperature Badge
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = GoldAccent.copy(alpha = 0.15f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.5f))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                IconButton(
+                                    onClick = onRefreshWeather,
+                                    modifier = Modifier.size(34.dp)
                                 ) {
-                                    Icon(Icons.Filled.Thermostat, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))
-                                    Text(
-                                        text = "درجة الحرارة",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GoldAccent
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = "تحديث الطقس",
+                                        tint = GoldAccent,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
+
+                                // Temperature Badge
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = GoldAccent.copy(alpha = 0.15f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.5f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Thermostat, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = "درجة الحرارة",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = GoldAccent
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // On This Day Card (حدث في مثل هذا اليوم حسب الهاتف)
+        item {
+            val phoneTodayEvents = remember(currentTimeMillis) {
+                com.example.data.local.OnThisDayDataset.getEventsForPhoneToday()
+            }
+            val primaryEvent = phoneTodayEvents.events.firstOrNull()
+
+            if (primaryEvent != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 5.dp)
+                        .clickable { onOpenOnThisDay() }
+                        .testTag("home_on_this_day_phone_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)),
+                    border = BorderStroke(1.dp, GoldAccent.copy(alpha = 0.35f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.HistoryEdu,
+                                    contentDescription = null,
+                                    tint = GoldAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "في مثل هذا اليوم حسب الهاتف",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            TextButton(
+                                onClick = onOpenOnThisDay,
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                            ) {
+                                Text(
+                                    text = "عرض الكل",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GoldAccent
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = GoldAccent,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = GoldAccent.copy(alpha = 0.2f),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Text(
+                                    text = com.example.data.services.DigitFormatter.format(primaryEvent.year, digitType),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GoldAccent,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = primaryEvent.titleAr,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = primaryEvent.detailsAr,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -528,7 +713,8 @@ fun HomeScreen(
 
                 prayerList.forEach { (type, timeMillis) ->
                     val isNext = type == nextPrayer
-                    val formatted = timeFormatter.format(Date(timeMillis))
+                    val rawFormatted = timeFormatter.format(Date(timeMillis))
+                    val formatted = com.example.data.services.DigitFormatter.format(rawFormatted, digitType)
 
                     Card(
                         modifier = Modifier
@@ -725,12 +911,12 @@ fun HomeScreen(
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Button(
-                                onClick = { onOpenAthkarDuas("post_prayer") },
+                                onClick = onOpenAlertsAndReminders,
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = EmeraldLight),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                             ) {
-                                Text("قراءة الأذكار", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("رسالة الأذكار كاملة", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
                             }
                             IconButton(onClick = onDismissPostPrayerReminder) {
                                 Icon(Icons.Filled.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))

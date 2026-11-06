@@ -79,7 +79,7 @@ fun CreatorStudioScreen(
     val context = LocalContext.current
     val clipboard = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager }
 
-    var emailInput by remember { mutableStateOf(developerEmail) }
+    var emailInput by remember { mutableStateOf(if (isUnlocked) developerEmail else "") }
     var answerInput by remember { mutableStateOf("") }
     var loginError by remember { mutableStateOf<String?>(null) }
     var unlocked by remember { mutableStateOf(isUnlocked) }
@@ -88,8 +88,8 @@ fun CreatorStudioScreen(
     val adminTabs = listOf(
         "المحتوى والقصص",
         "أصوات الأذان والتنبيهات",
-        "نغمات التذكير",
-        "الخلفيات",
+        "الخلفيات والتصاميم",
+        "الأقسام وإدارتها",
         "الويدجات الـ 5",
         "بيانات المطور"
     )
@@ -159,19 +159,16 @@ fun CreatorStudioScreen(
     var generatedEmail by remember { mutableStateOf<String?>(null) }
     var copyStatusMsg by remember { mutableStateOf<String?>(null) }
 
-    // Wallpapers
-    val wallpapersList = remember {
-        mutableStateListOf(
-            "المسجد النبوي الشريف" to "تصميم ليلي فاخر بقباب خضراء وإضاءة ذهبية",
-            "الحرم المكي والكعبة المشرفة" to "منظر مهيب لصحن المطاف والكعبة",
-            "زخارف إسلامية زمردية وذهبية" to "نقوش هندسية كلاسيكية راقية",
-            "سماء ليلية مع هلال الشهر" to "أجواء روحانية هادئة ومريحة للعين",
-            "شروق شمس على مآذن الأندلس" to "طابع تاريخي أندلسي أصيل"
-        )
-    }
+    // Wallpapers and Section management dialog states
+    var wallpaperToDelete by remember { mutableStateOf<WallpaperModel?>(null) }
     var showAddWallpaperDialog by remember { mutableStateOf(false) }
     var newWallpaperName by remember { mutableStateOf("") }
     var newWallpaperDesc by remember { mutableStateOf("") }
+
+    var showAddSectionDialog by remember { mutableStateOf(false) }
+    var sectionToDelete by remember { mutableStateOf<AppSectionModel?>(null) }
+    var newSectionTitle by remember { mutableStateOf("") }
+    var newSectionSubtitle by remember { mutableStateOf("") }
 
     // Widgets Customization State
     var widget1Active by remember { mutableStateOf(true) }
@@ -179,6 +176,8 @@ fun CreatorStudioScreen(
     var widget3Active by remember { mutableStateOf(true) }
     var widget4Active by remember { mutableStateOf(true) }
     var widget5Active by remember { mutableStateOf(true) }
+
+    androidx.activity.compose.BackHandler(onBack = onBack)
 
     Column(
         modifier = modifier
@@ -213,7 +212,7 @@ fun CreatorStudioScreen(
                         )
                     }
                     Text(
-                        text = if (unlocked) "لوحة المطور مفعّلة • $developerEmail" else "تسجيل دخول المطور والتحقق الأمني",
+                        text = if (unlocked) "لوحة المطور مفعّلة" else "تسجيل دخول المطور والتحقق الأمني",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -273,7 +272,8 @@ fun CreatorStudioScreen(
                             OutlinedTextField(
                                 value = emailInput,
                                 onValueChange = { emailInput = it },
-                                label = { Text("البريد الإلكتروني للمطور") },
+                                label = { Text("البريد الإلكتروني المعتمد") },
+                                placeholder = { Text("أدخل البريد الإلكتروني") },
                                 leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null, tint = GoldAccent) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
@@ -283,7 +283,7 @@ fun CreatorStudioScreen(
                             Spacer(modifier = Modifier.height(14.dp))
 
                             Text(
-                                text = "سؤال التحقق: $securityQuestion",
+                                text = "السؤال الأمني: ما هو اسم التطبيق الأساسي؟",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -320,7 +320,8 @@ fun CreatorStudioScreen(
                                         unlocked = true
                                         loginError = null
                                     } else {
-                                        loginError = "بيانات التحقق غير مطابقة. تأكد من البريد الإلكتروني وإجابة سؤال الأمان."
+                                        unlocked = false
+                                        loginError = "البيانات المدخلة غير صحيحة! لن يظهر قسم صانع التطبيق إلا بالبيانات الصحيحة."
                                     }
                                 },
                                 shape = RoundedCornerShape(12.dp),
@@ -336,90 +337,6 @@ fun CreatorStudioScreen(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    // In-App User Email Generator Card (Requested feature!)
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(Icons.Filled.Badge, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Text(
-                                    text = "إنشاء بريد إلكتروني خاص بالتطبيق",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "يمكن لأي مستخدم إنشاء بريد معرفي خاص بتطبيق صلاتي لاستخدامه وحفظ التفضيلات.",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Button(
-                                onClick = {
-                                    val randomId = Random.nextInt(10000, 99999)
-                                    generatedEmail = "user_$randomId@salati.app"
-                                    copyStatusMsg = null
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(Icons.Filled.AddCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("توليد بريد إلكتروني جديد", fontSize = 12.sp)
-                            }
-
-                            if (generatedEmail != null) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.surface,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = generatedEmail ?: "",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = GoldAccent
-                                        )
-                                        IconButton(
-                                            onClick = {
-                                                clipboard?.setPrimaryClip(ClipData.newPlainText("Salati Email", generatedEmail))
-                                                copyStatusMsg = "تم نسخ البريد بنجاح!"
-                                            }
-                                        ) {
-                                            Icon(Icons.Filled.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                                        }
-                                    }
-                                }
-                                if (copyStatusMsg != null) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = copyStatusMsg ?: "", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
-                    }
                 }
             }
         } else {
@@ -787,44 +704,13 @@ fun CreatorStudioScreen(
                     }
 
                     2 -> {
-                        // Reminder Alerts
+                        // Wallpapers Management with Deletion support
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            contentPadding = PaddingValues(bottom = 80.dp)
-                        ) {
-                            item {
-                                Text(
-                                    text = "نغمات التنبيه والتذكيرات الإيمانية",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                                ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Text("تنبيه ما قبل الصلاة (10 دقائق مسبقاً)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text("«إن الصلاة كانت على المؤمنين كتاباً موقوتاً - صدق الله العظيم»", fontSize = 12.sp, color = GoldAccent)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text("صوت التذكير بالصلاة على النبي ﷺ (كل 5 دقائق)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text("صوت تسبيح ندي وتذكير لطيف", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    3 -> {
-                        // Wallpapers Management
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            contentPadding = PaddingValues(bottom = 80.dp)
+                            contentPadding = PaddingValues(bottom = 80.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             item {
                                 Row(
@@ -832,11 +718,19 @@ fun CreatorStudioScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "الخلفيات الإسلامية (${wallpapersList.size})",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Column {
+                                        Text(
+                                            text = "الخلفيات والتصاميم الإسلامية (${wallpapersList.size})",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "يمكنك إضافة أو حذف أي خلفية من خلفيات التطبيق",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                     Button(
                                         onClick = { showAddWallpaperDialog = true },
                                         shape = RoundedCornerShape(10.dp)
@@ -846,37 +740,152 @@ fun CreatorStudioScreen(
                                         Text("إضافة خلفية", fontSize = 12.sp)
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                             }
 
-                            items(wallpapersList) { (name, desc) ->
+                            items(wallpapersList, key = { it.id }) { wp ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                                        modifier = Modifier
+                                            .padding(14.dp)
+                                            .fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            Icon(Icons.Filled.Wallpaper, contentDescription = null, tint = GoldAccent)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(wp.colorHex))
+                                                    .border(1.dp, GoldAccent.copy(alpha = 0.5f), CircleShape)
+                                            )
                                             Column {
-                                                Text(text = name, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                                Text(text = desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(text = wp.nameAr, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                Text(text = wp.descriptionAr, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = MaterialTheme.colorScheme.primaryContainer
-                                        ) {
-                                            Text(
-                                                text = "معتمد",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = MaterialTheme.colorScheme.primaryContainer
+                                            ) {
+                                                Text(
+                                                    text = if (wp.isPreset) "أساسية" else "مخصصة",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+
+                                            // Delete Wallpaper Button (Requested!)
+                                            IconButton(
+                                                onClick = { wallpaperToDelete = wp }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Delete,
+                                                    contentDescription = "حذف الخلفية",
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    3 -> {
+                        // Sections Management & Addition (Requested feature: إضافة وتعديل الأقسام الأخرى)
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentPadding = PaddingValues(bottom = 80.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "إدارة وتخصيص أقسام التطبيق (${sectionsList.size})",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "إضافة أقسام جديدة، تفعيل أو إخفاء، وحذف الأقسام المخصصة",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Button(
+                                        onClick = { showAddSectionDialog = true },
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("إضافة قسم", fontSize = 11.sp)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+
+                            items(sectionsList, key = { it.id }) { section ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Text(text = section.titleAr, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                if (section.isCustom) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = GoldAccent.copy(alpha = 0.2f)
+                                                    ) {
+                                                        Text("مخصص", fontSize = 9.sp, color = GoldAccent, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                                                    }
+                                                }
+                                            }
+                                            Text(text = section.subtitleAr, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Switch(
+                                                checked = section.isEnabled,
+                                                onCheckedChange = { isChecked ->
+                                                    onToggleSection?.invoke(section.id, isChecked)
+                                                }
                                             )
+                                            if (section.isCustom) {
+                                                IconButton(onClick = { sectionToDelete = section }) {
+                                                    Icon(Icons.Filled.Delete, contentDescription = "حذف القسم", tint = MaterialTheme.colorScheme.error)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -885,54 +894,87 @@ fun CreatorStudioScreen(
                     }
 
                     4 -> {
-                        // 5 Widgets Management (Screenshot 8)
+                        // 5 Widgets Management & Previews (Requested feature: 5 widgets with preview and customization)
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(16.dp),
-                            contentPadding = PaddingValues(bottom = 80.dp)
+                            contentPadding = PaddingValues(bottom = 80.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             item {
                                 Text(
-                                    text = "إدارة وتخصيص قوالب الويدجات الـ 5",
+                                    text = "إدارة وتخصيص قوالب الويدجات الـ 5 لشاشة الهاتف",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "يمكنك تفعيل أو تعديل قوالب الويدجات للشاشة الرئيسية لنظام أندرويد",
+                                    text = "ويدجات تعمل خارج التطبيق على شاشة الهاتف الرئيسية مع إمكانية التعديل والتفعيل",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                             }
 
                             val widgetConfigs = listOf(
-                                Triple("ويدجت 1: شريط المواقيت الكامل", "يعرض الصلوات الخمس مع الوقت المتبقي", widget1Active) to { widget1Active = !widget1Active },
-                                Triple("ويدجت 2: الصلاة القادمة فقط", "عداد تنازلي كبير مع وقت الصلاة القادمة", widget2Active) to { widget2Active = !widget2Active },
-                                Triple("ويدجت 3: آية اليوم والحديث الشريف", "تلاوة وتدبر يومي متجدد تلقائياً", widget3Active) to { widget3Active = !widget3Active },
-                                Triple("ويدجت 4: التقويم وطور القمر", "التاريخ الهجري والميلادي وشكل القمر", widget4Active) to { widget4Active = !widget4Active },
-                                Triple("ويدجت 5: المسبحة والأذكار السريعة", "عداد تسبيح مباشر مع زر استغفار", widget5Active) to { widget5Active = !widget5Active }
+                                Triple("ويدجت 1: شريط المواقيت الخمسة الكامل", "يعرض الفجر والشروق والظهر والعصر والمغرب والعشاء مع الوقت المتبقي", widget1Active) to { widget1Active = !widget1Active },
+                                Triple("ويدجت 2: الصلاة القادمة فقط بالعد التنازلي", "عرض صلاة قادمة بشكل بطاقة بارزة وساعة رقمية ودرجة الحرارة", widget2Active) to { widget2Active = !widget2Active },
+                                Triple("ويدجت 3: آية اليوم والحديث الشريف المتجدد", "آية قرآنية مختارة وحديث نبوي شريف مع التفسير والتدبر اليومي", widget3Active) to { widget3Active = !widget3Active },
+                                Triple("ويدجت 4: التقويم الهجري وطور القمر والتاريخ", "التاريخ الهجري الكامل، التقويم الميلادي، وشكل طور القمر الحالي", widget4Active) to { widget4Active = !widget4Active },
+                                Triple("ويدجت 5: المسبحة الإلكترونية والأذكار السريعة", "عداد تسبيح فوري مع زر الاستغفار وأذكار الصباح والمساء السريعة", widget5Active) to { widget5Active = !widget5Active }
                             )
 
                             items(widgetConfigs) { (info, toggle) ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(14.dp).fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(text = info.first, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                            Text(text = info.second, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(text = info.first, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
+                                                Text(text = info.second, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Switch(
+                                                checked = info.third,
+                                                onCheckedChange = { toggle() }
+                                            )
                                         }
-                                        Switch(
-                                            checked = info.third,
-                                            onCheckedChange = { toggle() }
-                                        )
+
+                                        // Mini preview mockup of the widget on Android launcher
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.25f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    Icon(Icons.Filled.Widgets, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(18.dp))
+                                                    Text("معاينة الويدجت للشاشة الخارجية", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Surface(shape = RoundedCornerShape(6.dp), color = if (info.third) EmeraldLight.copy(alpha = 0.2f) else MaterialTheme.colorScheme.error.copy(alpha = 0.2f)) {
+                                                    Text(
+                                                        text = if (info.third) "جاهز للعمل" else "معطّل",
+                                                        fontSize = 10.sp,
+                                                        color = if (info.third) EmeraldLight else MaterialTheme.colorScheme.error,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1462,7 +1504,7 @@ fun CreatorStudioScreen(
     if (showAddWallpaperDialog) {
         AlertDialog(
             onDismissRequest = { showAddWallpaperDialog = false },
-            title = { Text("إضافة خلفية إسلامية جديدة", fontWeight = FontWeight.Bold) },
+            title = { Text("إضافة خلفية إسلامية جديدة", fontWeight = FontWeight.Bold, color = GoldAccent) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -1483,7 +1525,12 @@ fun CreatorStudioScreen(
                 Button(
                     onClick = {
                         if (newWallpaperName.isNotBlank()) {
-                            wallpapersList.add(newWallpaperName.trim() to (if (newWallpaperDesc.isBlank()) "خلفية مخصصة" else newWallpaperDesc.trim()))
+                            onAddWallpaper?.invoke(
+                                newWallpaperName.trim(),
+                                newWallpaperDesc.trim().ifEmpty { "خلفية إسلامية مخصصة" },
+                                0xFF064E3B,
+                                null
+                            )
                             newWallpaperName = ""
                             newWallpaperDesc = ""
                             showAddWallpaperDialog = false
@@ -1497,6 +1544,96 @@ fun CreatorStudioScreen(
                 TextButton(onClick = { showAddWallpaperDialog = false }) {
                     Text("إلغاء")
                 }
+            }
+        )
+    }
+
+    // Confirm Delete Wallpaper Dialog (Requested!)
+    if (wallpaperToDelete != null) {
+        val wp = wallpaperToDelete!!
+        AlertDialog(
+            onDismissRequest = { wallpaperToDelete = null },
+            title = { Text("تأكيد حذف الخلفية", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+            text = { Text("هل أنت متأكد من رغبتك في حذف خلفية \"${wp.nameAr}\" نهائياً؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteWallpaper?.invoke(wp.id)
+                        wallpaperToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("حذف الخلفية")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { wallpaperToDelete = null }) { Text("إلغاء") }
+            }
+        )
+    }
+
+    // Add Section Dialog (Requested!)
+    if (showAddSectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddSectionDialog = false },
+            title = { Text("إضافة قسم جديد للتطبيق", fontWeight = FontWeight.Bold, color = GoldAccent) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newSectionTitle,
+                        onValueChange = { newSectionTitle = it },
+                        label = { Text("اسم القسم الجديد") },
+                        placeholder = { Text("مثال: أدعية مختارة، قصص الصالحين...") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newSectionSubtitle,
+                        onValueChange = { newSectionSubtitle = it },
+                        label = { Text("وصف مختصر للقسم") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newSectionTitle.isNotBlank()) {
+                            onAddSection?.invoke(newSectionTitle.trim(), newSectionSubtitle.trim())
+                            newSectionTitle = ""
+                            newSectionSubtitle = ""
+                            showAddSectionDialog = false
+                        }
+                    }
+                ) {
+                    Text("إضافة القسم الآن")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddSectionDialog = false }) { Text("إلغاء") }
+            }
+        )
+    }
+
+    // Confirm Delete Section Dialog
+    if (sectionToDelete != null) {
+        val s = sectionToDelete!!
+        AlertDialog(
+            onDismissRequest = { sectionToDelete = null },
+            title = { Text("تأكيد حذف القسم المخصص", fontWeight = FontWeight.Bold) },
+            text = { Text("هل تريد حذف قسم \"${s.titleAr}\" نهائياً؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteSection?.invoke(s.id)
+                        sectionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("حذف القسم")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sectionToDelete = null }) { Text("إلغاء") }
             }
         )
     }

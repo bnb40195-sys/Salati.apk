@@ -167,7 +167,7 @@ fun KnowledgeScreen(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Icon(Icons.Filled.Shield, contentDescription = null, tint = EmeraldLight, modifier = Modifier.size(16.dp))
-                                        Text("الغزوات والاختراعات (موحد)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldLight)
+                                        Text("الغزوات والاختراعات", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldLight)
                                     }
                                 }
                             }
@@ -186,7 +186,7 @@ fun KnowledgeScreen(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Icon(Icons.Filled.AutoStories, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
-                                        Text("الأنبياء والتوبة (موحد)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
+                                        Text("الأنبياء والتوبة", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
                                     }
                                 }
                             }
@@ -205,7 +205,7 @@ fun KnowledgeScreen(
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Icon(Icons.Filled.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                        Text("الأسئلة الدينية والعامة (موحد)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text("الأسئلة الدينية والعامة", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }

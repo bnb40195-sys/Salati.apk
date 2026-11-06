@@ -83,11 +83,15 @@ fun UnifiedAdhanReminderScreen(
     onAddSound: (String, String, String, String) -> Unit,
     onDeleteSound: (String) -> Unit = {},
     onOpenCreatorStudio: () -> Unit = {},
+    isDeveloperUnlocked: Boolean = false,
+    onSendCenterNotification: () -> Unit = {},
     onOpenDrawer: () -> Unit = {},
+    postPrayerDelayMinutes: Int = 5,
+    onUpdatePostPrayerDelayMinutes: (Int) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0: الأذان والمؤذنون, 1: تذكير الصلاة والإقامة, 2: ضبط دقائق المواقيت
+    var selectedTab by remember { mutableStateOf(0) }
 
     // Dialog for adding custom sound
     var showAddSoundDialog by remember { mutableStateOf(false) }
@@ -118,6 +122,8 @@ fun UnifiedAdhanReminderScreen(
     var showPostPrayerTimeDialog by remember { mutableStateOf(false) }
     var postPrayerHourInput by remember { mutableStateOf(postPrayerAthkarTime.split(":").getOrNull(0) ?: "05") }
     var postPrayerMinInput by remember { mutableStateOf(postPrayerAthkarTime.split(":").getOrNull(1) ?: "00") }
+
+    androidx.activity.compose.BackHandler(onBack = onBack)
 
     Column(
         modifier = modifier
@@ -158,7 +164,7 @@ fun UnifiedAdhanReminderScreen(
                             textAlign = TextAlign.End
                         )
                         Text(
-                            text = "قسم موحد • أصوات المؤذنين وتذكيرات الإقامة والصلوات والأذكار",
+                            text = "أصوات المؤذنين وتذكيرات الإقامة والصلوات والأذكار",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.primary,
                             textAlign = TextAlign.End
@@ -168,9 +174,10 @@ fun UnifiedAdhanReminderScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Unified Tab Row
-                TabRow(
+                // Unified Scrollable Tab Row
+                ScrollableTabRow(
                     selectedTabIndex = selectedTab,
+                    edgePadding = 0.dp,
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     contentColor = GoldAccent,
                     modifier = Modifier
@@ -187,7 +194,7 @@ fun UnifiedAdhanReminderScreen(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
                         text = { Text("تذكير الصلاة والإقامة", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) },
-                        icon = { Icon(Icons.Filled.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        icon = { Icon(Icons.Filled.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp)) }
                     )
                     Tab(
                         selected = selectedTab == 2,
@@ -262,14 +269,16 @@ fun UnifiedAdhanReminderScreen(
                             Text("إضافة صوت أذان", fontSize = 12.sp)
                         }
 
-                        OutlinedButton(
-                            onClick = onOpenCreatorStudio,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Filled.Build, contentDescription = null, modifier = Modifier.size(16.dp), tint = GoldAccent)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("صانع التطبيق", fontSize = 12.sp)
+                        if (isDeveloperUnlocked) {
+                            OutlinedButton(
+                                onClick = onOpenCreatorStudio,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Filled.Build, contentDescription = null, modifier = Modifier.size(16.dp), tint = GoldAccent)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("صانع التطبيق", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -374,19 +383,29 @@ fun UnifiedAdhanReminderScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    Text(
-                                        text = "لحذف أي صوت أو إضافة تسجيلات جديدة، انتقل إلى صانع التطبيق",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    if (isDeveloperUnlocked) {
+                                        Text(
+                                            text = "لحذف أي صوت أو إضافة تسجيلات جديدة، انتقل إلى صانع التطبيق",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "أصوات أذان الجمعة والتنبيهات المعتمدة",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
-                            OutlinedButton(
-                                onClick = onOpenCreatorStudio,
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                            ) {
-                                Text("فتح الصانع", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            if (isDeveloperUnlocked) {
+                                OutlinedButton(
+                                    onClick = onOpenCreatorStudio,
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("فتح الصانع", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

@@ -28,6 +28,7 @@ data class PlaybackState(
 class AudioPlayerManager(private val context: Context) {
 
     private var mediaPlayer: MediaPlayer? = null
+    private var isPrepared: Boolean = false
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var progressJob: Job? = null
 
@@ -36,7 +37,7 @@ class AudioPlayerManager(private val context: Context) {
 
     fun playAudio(url: String, title: String, subtitle: String = "") {
         try {
-            stopAudio()
+            safeResetAndRelease()
 
             _playbackState.value = PlaybackState(
                 isBuffering = true,
@@ -54,13 +55,18 @@ class AudioPlayerManager(private val context: Context) {
                 )
                 setDataSource(url)
                 setOnPreparedListener { mp ->
-                    mp.start()
-                    _playbackState.value = _playbackState.value.copy(
-                        isPlaying = true,
-                        isBuffering = false,
-                        durationMs = mp.duration
-                    )
-                    startProgressTracker()
+                    isPrepared = true
+                    try {
+                        mp.start()
+                        _playbackState.value = _playbackState.value.copy(
+                            isPlaying = true,
+                            isBuffering = false,
+                            durationMs = mp.duration
+                        )
+                        startProgressTracker()
+                    } catch (e: Exception) {
+                        Log.e("AudioPlayerManager", "Error starting playback after prepare", e)
+                    }
                 }
                 setOnCompletionListener {
                     _playbackState.value = _playbackState.value.copy(
@@ -68,13 +74,20 @@ class AudioPlayerManager(private val context: Context) {
                         currentPositionMs = 0
                     )
                     stopProgressTracker()
+                    isPrepared = false
                 }
-                setOnErrorListener { _, what, extra ->
+                setOnErrorListener { mp, what, extra ->
                     Log.e("AudioPlayerManager", "MediaPlayer error: what=$what, extra=$extra")
+                    isPrepared = false
+                    try {
+                        mp.reset()
+                    } catch (e: Exception) {
+                        // ignore
+                    }
                     _playbackState.value = _playbackState.value.copy(
                         isPlaying = false,
                         isBuffering = false,
-                        errorMessage = "تعذر تشغيل الصوت (تأكد من الاتصال بالإنترنت)"
+                        errorMessage = "تعذر تشغيل الصوت من المصدر الخارجي"
                     )
                     true
                 }
@@ -87,37 +100,73 @@ class AudioPlayerManager(private val context: Context) {
                 isBuffering = false,
                 errorMessage = "خطأ في تشغيل الصوت"
             )
+            safeResetAndRelease()
         }
     }
 
     fun togglePlayPause() {
         mediaPlayer?.let { mp ->
-            if (mp.isPlaying) {
-                mp.pause()
-                _playbackState.value = _playbackState.value.copy(isPlaying = false)
-            } else {
-                mp.start()
-                _playbackState.value = _playbackState.value.copy(isPlaying = true)
-                startProgressTracker()
+            if (isPrepared) {
+                try {
+                    if (mp.isPlaying) {
+                        mp.pause()
+                        _playbackState.value = _playbackState.value.copy(isPlaying = false)
+                    } else {
+                        mp.start()
+                        _playbackState.value = _playbackState.value.copy(isPlaying = true)
+                        startProgressTracker()
+                    }
+                } catch (e: Exception) {
+                    Log.e("AudioPlayerManager", "Error toggling play/pause", e)
+                }
             }
         }
     }
 
     fun seekTo(positionMs: Int) {
-        mediaPlayer?.seekTo(positionMs)
-        _playbackState.value = _playbackState.value.copy(currentPositionMs = positionMs)
+        if (isPrepared) {
+            try {
+                mediaPlayer?.seekTo(positionMs)
+                _playbackState.value = _playbackState.value.copy(currentPositionMs = positionMs)
+            } catch (e: Exception) {
+                Log.e("AudioPlayerManager", "Error seeking", e)
+            }
+        }
     }
 
     fun stopAudio() {
+        safeResetAndRelease()
+        _playbackState.value = PlaybackState()
+    }
+
+    private fun safeResetAndRelease() {
         stopProgressTracker()
         try {
-            mediaPlayer?.stop()
-            mediaPlayer?.release()
+            mediaPlayer?.let { mp ->
+                if (isPrepared && mp.isPlaying) {
+                    try {
+                        mp.stop()
+                    } catch (e: Exception) {
+                        Log.w("AudioPlayerManager", "Error stopping mp", e)
+                    }
+                }
+                try {
+                    mp.reset()
+                } catch (e: Exception) {
+                    Log.w("AudioPlayerManager", "Error resetting mp", e)
+                }
+                try {
+                    mp.release()
+                } catch (e: Exception) {
+                    Log.w("AudioPlayerManager", "Error releasing mp", e)
+                }
+            }
         } catch (e: Exception) {
-            // ignore
+            Log.w("AudioPlayerManager", "General exception in safeResetAndRelease", e)
+        } finally {
+            mediaPlayer = null
+            isPrepared = false
         }
-        mediaPlayer = null
-        _playbackState.value = PlaybackState()
     }
 
     private fun startProgressTracker() {

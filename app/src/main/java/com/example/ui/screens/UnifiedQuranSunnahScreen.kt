@@ -77,6 +77,10 @@ fun UnifiedQuranSunnahScreen(
     // Inside Quran Tab: 0 = مصحح التلاوة والتصحيح الصوتي بالأحمر, 1 = المصحف الشريف
     var quranSubTab by remember { mutableIntStateOf(initialQuranSubTab) }
 
+    if (onBack != null) {
+        androidx.activity.compose.BackHandler(onBack = onBack)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -140,7 +144,7 @@ fun UnifiedQuranSunnahScreen(
                             textAlign = TextAlign.End
                         )
                         Text(
-                            text = "قسم موحد يجمع التلاوة المصححة، المصحف، وتراث السنة النبوية",
+                            text = "يجمع التلاوة المصححة، المصحف الشريف، وتراث السنة النبوية المطهرة",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.End

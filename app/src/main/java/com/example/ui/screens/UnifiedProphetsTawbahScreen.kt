@@ -40,6 +40,8 @@ fun UnifiedProphetsTawbahScreen(
     onDeleteTawbahStory: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    androidx.activity.compose.BackHandler(onBack = onBack)
+
     var selectedTab by remember { mutableStateOf(initialTab) }
     var searchQuery by remember { mutableStateOf("") }
 

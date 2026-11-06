@@ -162,19 +162,23 @@ class PrayerAppWidgetProvider : AppWidgetProvider() {
             val diffMillis = (nextPrayerMillis - now).coerceAtLeast(0)
             val diffMinutes = (diffMillis / (1000 * 60)).toInt()
 
+            val digitType = prefs.getString("digit_type", "western") ?: "western"
+
             val countdownText = if (diffMinutes < 60) {
-                "$diffMinutes دقيقة"
+                com.example.data.services.DigitFormatter.format("$diffMinutes دقيقة", digitType)
             } else {
                 val h = diffMinutes / 60
                 val m = diffMinutes % 60
-                if (m == 0) "$h ساعة" else "$h س و $m د"
+                val raw = if (m == 0) "$h ساعة" else "$h س و $m د"
+                com.example.data.services.DigitFormatter.format(raw, digitType)
             }
 
-            val nextTimeFormatted = timeFormatter.format(Date(nextPrayerMillis))
+            val nextTimeFormatted = com.example.data.services.DigitFormatter.format(timeFormatter.format(Date(nextPrayerMillis)), digitType)
             val nextPrayerText = "حتى ${nextPrayer.arName} @ $nextTimeFormatted"
 
+            val formattedTemp = com.example.data.services.DigitFormatter.format(customTemp, digitType)
             val locationTempText = if (showTemp) {
-                "$cityName • $customTemp"
+                "$cityName • $formattedTemp"
             } else {
                 cityName
             }
@@ -185,16 +189,16 @@ class PrayerAppWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_tv_next_prayer, nextPrayerText)
             views.setTextViewText(R.id.widget_tv_location_temp, locationTempText)
 
-            views.setTextViewText(R.id.widget_tv_hijri_date, hijriDate.formattedAr)
-            views.setTextViewText(R.id.widget_tv_gregorian_date, gregorianDateStr)
+            views.setTextViewText(R.id.widget_tv_hijri_date, com.example.data.services.DigitFormatter.format(hijriDate.formattedAr, digitType))
+            views.setTextViewText(R.id.widget_tv_gregorian_date, com.example.data.services.DigitFormatter.format(gregorianDateStr, digitType))
 
             // Format 6 prayer times
-            val fajrStr = timeFormatter.format(Date(prayerTimes.fajr))
-            val sunriseStr = timeFormatter.format(Date(prayerTimes.sunrise))
-            val dhuhrStr = timeFormatter.format(Date(prayerTimes.dhuhr))
-            val asrStr = timeFormatter.format(Date(prayerTimes.asr))
-            val maghribStr = timeFormatter.format(Date(prayerTimes.maghrib))
-            val ishaStr = timeFormatter.format(Date(prayerTimes.isha))
+            val fajrStr = com.example.data.services.DigitFormatter.format(timeFormatter.format(Date(prayerTimes.fajr)), digitType)
+            val sunriseStr = com.example.data.services.DigitFormatter.format(timeFormatter.format(Date(prayerTimes.sunrise)), digitType)
+            val dhuhrStr = com.example.data.services.DigitFormatter.format(timeFormatter.format(Date(prayerTimes.dhuhr)), digitType)
+            val asrStr = com.example.data.services.DigitFormatter.format(timeFormatter.format(Date(prayerTimes.asr)), digitType)
+            val maghribStr = com.example.data.services.DigitFormatter.format(timeFormatter.format(Date(prayerTimes.maghrib)), digitType)
+            val ishaStr = com.example.data.services.DigitFormatter.format(timeFormatter.format(Date(prayerTimes.isha)), digitType)
 
             views.setTextViewText(R.id.widget_tv_fajr_time, fajrStr)
             views.setTextViewText(R.id.widget_tv_sunrise_time, sunriseStr)

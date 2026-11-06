@@ -1,8 +1,6 @@
 package com.example.data.services
 
 import android.content.Context
-import android.os.Build
-import android.os.VibrationEffect
 import android.os.Vibrator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +22,8 @@ data class SalawatAlert(
 class SalawatReminderManager(
     private val context: Context,
     private val audioPlayerManager: AudioPlayerManager,
-    private val smartVoiceManager: SmartVoiceManager
+    private val smartVoiceManager: SmartVoiceManager,
+    private val prayerNotificationManager: PrayerNotificationManager = PrayerNotificationManager(context)
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var reminderJob: Job? = null
@@ -56,17 +55,25 @@ class SalawatReminderManager(
             else -> "صوت التلاوة الذكية"
         }
 
+        val salawatText = "اللَّهُمَّ صَلِّ وَسَلِّمْ وَبَارِكْ عَلَى نَبِيِّنَا مُحَمَّدٍ ﷺ"
+
         _currentAlert.value = SalawatAlert(
             id = System.currentTimeMillis(),
-            textAr = "اللَّهُمَّ صَلِّ وَسَلِّمْ وَبَارِكْ عَلَى نَبِيِّنَا مُحَمَّدٍ ﷺ",
+            textAr = salawatText,
             isVisible = true,
             soundName = soundLabel
         )
 
-        // Play the chosen sound or voice
+        // 1. بالكلام: النطق الصوتي والتلاوة الذكية
         smartVoiceManager.playSalawatReminder(soundType)
 
-        // Auto dismiss banner after 12 seconds
+        // 2. بالكتابة وفي مركز الإشعارات: إشعار أندرويد في شريط الإشعارات
+        prayerNotificationManager.showSalawatNotification(
+            title = "🕌 تذكير بالصلاة على النبي ﷺ",
+            message = salawatText
+        )
+
+        // Auto dismiss in-app banner after 12 seconds
         scope.launch {
             delay(12000)
             if (_currentAlert.value.isVisible) {

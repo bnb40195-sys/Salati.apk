@@ -40,6 +40,8 @@ fun OnThisDayScreen(
     eventsList: List<OnThisDayItem> = emptyList(),
     dayCollections: List<DayEventsCollection> = OnThisDayDataset.collections
 ) {
+    androidx.activity.compose.BackHandler(onBack = onBack)
+
     val context = LocalContext.current
     var selectedDayOffset by remember { mutableIntStateOf(0) }
     var selectedFilter by remember { mutableStateOf("all") }
@@ -50,15 +52,12 @@ fun OnThisDayScreen(
     }
 
     val currentDayCollection = remember(selectedDayOffset, daysList) {
-        daysList.find { it.dayOffset == selectedDayOffset }
-            ?: daysList.firstOrNull { it.dayOffset == 0 }
-            ?: DayEventsCollection(
-                dayOffset = 0,
-                dayTitleAr = "اليوم",
-                dateDisplayAr = "25 أكتوبر 2026",
-                hijriDateAr = "14 جمادى الأولى 1448 هـ",
-                events = eventsList
-            )
+        if (selectedDayOffset == 0) {
+            OnThisDayDataset.getEventsForPhoneToday()
+        } else {
+            daysList.find { it.dayOffset == selectedDayOffset }
+                ?: OnThisDayDataset.getEventsForPhoneToday()
+        }
     }
 
     val activeRawEvents = remember(currentDayCollection, eventsList) {

@@ -1,11 +1,22 @@
 package com.example.data.services
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.example.data.local.AppPreferences
+import com.example.widget.PrayerAppWidgetProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Calendar
+import java.util.Locale
 
 data class WeatherInfo(
     val temperatureC: Double = 26.0,
@@ -13,13 +24,14 @@ data class WeatherInfo(
     val windSpeedKmh: Double = 12.0,
     val isDay: Boolean = true,
     val lastUpdated: String = "محدث",
-    val isOnline: Boolean = false
+    val isOnline: Boolean = false,
+    val humidityPercent: Int = 50
 )
 
 /**
  * Temperature & Climate Engine
- * Computes realistic diurnal and seasonal temperature based on latitude, month, and hour of day,
- * with customizable calibration offset.
+ * Supports real-time online weather fetching via Open-Meteo REST API when internet is available,
+ * and seamless fallback to astronomical diurnal/seasonal calculations when offline.
  */
 class WeatherService(
     private val context: Context,
@@ -28,10 +40,101 @@ class WeatherService(
     private val _weatherState = MutableStateFlow(computeOfflineWeather(24.4672, 39.6111))
     val weatherState: StateFlow<WeatherInfo> = _weatherState.asStateFlow()
 
-    fun isNetworkAvailable(): Boolean = false
+    fun isNetworkAvailable(): Boolean {
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+            val network = cm.activeNetwork ?: return false
+            val caps = cm.getNetworkCapabilities(network) ?: return false
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     suspend fun refreshWeather(latitude: Double, longitude: Double) {
-        _weatherState.value = computeOfflineWeather(latitude, longitude)
+        if (isNetworkAvailable()) {
+            val onlineWeather = fetchOnlineWeather(latitude, longitude)
+            if (onlineWeather != null) {
+                _weatherState.value = onlineWeather
+                // Update widget temperature preference
+                val tempStr = "${onlineWeather.temperatureC.toInt()}°C"
+                context.getSharedPreferences("salati_prefs", Context.MODE_PRIVATE)
+                    .edit().putString("widget_temp", tempStr).apply()
+                PrayerAppWidgetProvider.updateAllWidgets(context)
+                return
+            }
+        }
+
+        // Fallback to offline astronomical calculation
+        val offlineWeather = computeOfflineWeather(latitude, longitude)
+        _weatherState.value = offlineWeather
+        val tempStr = "${offlineWeather.temperatureC.toInt()}°C"
+        context.getSharedPreferences("salati_prefs", Context.MODE_PRIVATE)
+            .edit().putString("widget_temp", tempStr).apply()
+        PrayerAppWidgetProvider.updateAllWidgets(context)
+    }
+
+    private suspend fun fetchOnlineWeather(latitude: Double, longitude: Double): WeatherInfo? = withContext(Dispatchers.IO) {
+        try {
+            val urlStr = String.format(
+                Locale.US,
+                "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto",
+                latitude, longitude
+            )
+            val url = URL(urlStr)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.requestMethod = "GET"
+
+            if (conn.responseCode == 200) {
+                val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                val response = reader.readText()
+                reader.close()
+
+                val json = JSONObject(response)
+                if (json.has("current")) {
+                    val current = json.getJSONObject("current")
+                    val temp = current.getDouble("temperature_2m")
+                    val humidity = current.optInt("relative_humidity_2m", 50)
+                    val wind = current.optDouble("wind_speed_10m", 12.0)
+                    val weatherCode = current.optInt("weather_code", 0)
+
+                    val calendar = Calendar.getInstance()
+                    val hour = calendar.get(Calendar.HOUR_OF_DAY)
+                    val isDay = hour in 6..18
+
+                    val condition = mapWeatherCodeToAr(weatherCode, isDay)
+
+                    return@withContext WeatherInfo(
+                        temperatureC = temp,
+                        conditionAr = condition,
+                        windSpeedKmh = wind,
+                        isDay = isDay,
+                        lastUpdated = "مباشر عبر الإنترنت",
+                        isOnline = true,
+                        humidityPercent = humidity
+                    )
+                }
+            }
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun mapWeatherCodeToAr(code: Int, isDay: Boolean): String {
+        return when (code) {
+            0 -> if (isDay) "صحو ومشمس" else "صافٍ ولطيف"
+            1, 2, 3 -> "صحو إلى غائم جزئياً"
+            45, 48 -> "ضباب خفيف"
+            51, 53, 55 -> "رذاذ مطري خفيف"
+            61, 63, 65 -> "أمطار خير وبركة"
+            71, 73, 75, 77 -> "تساقط ثلوج"
+            80, 81, 82 -> "زخات مطرية"
+            95, 96, 99 -> "عواصف رعدية وأمطار"
+            else -> "معتدل ولطيف"
+        }
     }
 
     fun computeOfflineWeather(latitude: Double, longitude: Double): WeatherInfo {
@@ -95,7 +198,7 @@ class WeatherService(
             conditionAr = condition,
             windSpeedKmh = wind,
             isDay = isDay,
-            lastUpdated = "محدث",
+            lastUpdated = "محلي فلكي",
             isOnline = false
         )
     }

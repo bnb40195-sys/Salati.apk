@@ -59,6 +59,7 @@ private data class DrawerItemDef(
 fun AppNavigationDrawer(
     isOpen: Boolean,
     currentDestination: DrawerDestination,
+    isDeveloperUnlocked: Boolean = false,
     onClose: () -> Unit,
     onNavigate: (DrawerDestination) -> Unit,
     modifier: Modifier = Modifier
@@ -69,35 +70,39 @@ fun AppNavigationDrawer(
     val goldText = Color(0xFFD4AF37)
     val activeItemBg = Color(0xFF1B382B)
 
-    val mainItems = remember {
-        listOf(
+    val mainItems = remember(isDeveloperUnlocked) {
+        val list = mutableListOf(
             DrawerItemDef(DrawerDestination.HOME, "الرئيسية", Icons.Filled.Home),
-            DrawerItemDef(DrawerDestination.ADHAN_AND_REMINDER, "الأذان وتذكير الصلاة (قسم موحد)", Icons.Filled.NotificationsActive, "موحد"),
+            DrawerItemDef(DrawerDestination.ADHAN_AND_REMINDER, "قسم الأذان والمواقيت", Icons.Filled.NotificationsActive, "النداء"),
+            DrawerItemDef(DrawerDestination.PRAYER_REMINDER, "قسم تنبيه وتذكير", Icons.Filled.Alarm, "منبهات"),
             DrawerItemDef(DrawerDestination.ATHKAR_DUAS, "الأذكار والأدعية الشاملة (جهتان وعداد)", Icons.Filled.AutoAwesome, "شامل"),
-            DrawerItemDef(DrawerDestination.QURAN_AND_SUNNAH, "القرآن الكريم والسنة النبوية (قسم موحد)", Icons.Filled.MenuBook, "موحد"),
+            DrawerItemDef(DrawerDestination.QURAN_AND_SUNNAH, "القرآن الكريم والسنة النبوية", Icons.Filled.MenuBook, "المصحف"),
             DrawerItemDef(DrawerDestination.CALENDAR, "التقويم الهجري والميلادي", Icons.Filled.CalendarMonth),
             DrawerItemDef(DrawerDestination.QIBLA, "القبلة", Icons.Filled.Explore),
-            DrawerItemDef(DrawerDestination.SETTINGS, "الإعدادات الشاملة", Icons.Filled.Settings),
-            DrawerItemDef(DrawerDestination.CREATOR_STUDIO, "قسم صانع التطبيق", Icons.Filled.Build, "استوديو")
+            DrawerItemDef(DrawerDestination.SETTINGS, "الإعدادات الشاملة", Icons.Filled.Settings)
         )
+        if (isDeveloperUnlocked) {
+            list.add(DrawerItemDef(DrawerDestination.CREATOR_STUDIO, "قسم صانع التطبيق", Icons.Filled.Build, "استوديو"))
+        }
+        list
     }
 
     val infoItems = remember {
         listOf(
             DrawerItemDef(
                 DrawerDestination.PROPHETS_AND_TAWBAH,
-                "قصص الأنبياء والتوبة (قسم موحد)",
+                "قصص الأنبياء والتوبة",
                 Icons.Filled.AutoStories,
-                "موحد"
+                "سير وعبر"
             ),
             DrawerItemDef(
                 DrawerDestination.QUESTIONS_RELIGIOUS_AND_GENERAL,
-                "أسئلة دينية وعامة (قسم موحد)",
+                "أسئلة دينية وعامة",
                 Icons.Filled.HelpOutline,
-                "موحد"
+                "فتاوى"
             ),
             DrawerItemDef(DrawerDestination.ON_THIS_DAY, "حدث في مثل هذا اليوم", Icons.Filled.Event),
-            DrawerItemDef(DrawerDestination.CAPITALS, "عواصم الدول العربية والإسلامية", Icons.Filled.Public)
+            DrawerItemDef(DrawerDestination.CAPITALS, "عواصم 57 دولة إسلامية", Icons.Filled.Public, "أطلس")
         )
     }
 
