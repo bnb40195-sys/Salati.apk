@@ -6,7 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -77,6 +80,31 @@ fun UnifiedAdhanReminderScreen(
     salawatSoundType: String,
     onUpdateSalawatSettings: (Int, String) -> Unit,
     onPlaySalawatTest: (String) -> Unit = {},
+    fridayFirstAdhanMinutesBefore: Int = 20,
+    fridaySecondAdhanMinutes: Int = 0,
+    onUpdateFridayMinutes: (Int, Int) -> Unit = { _, _ -> },
+    autoGpsLocation: Boolean = true,
+    onToggleAutoGpsLocation: (Boolean) -> Unit = {},
+    salawatCustomText: String = "اللهم صل وسلم على نبينا محمد ﷺ",
+    onUpdateSalawatCustomText: (String) -> Unit = {},
+    morningAthkarCustomText: String = "أصبحنا وأصبح الملك لله والحمد لله ولا إله إلا الله وحده لا شريك له",
+    onUpdateMorningAthkarCustomText: (String) -> Unit = {},
+    eveningAthkarCustomText: String = "أمسينا وأمسى الملك لله والحمد لله ولا إله إلا الله وحده لا شريك له",
+    onUpdateEveningAthkarCustomText: (String) -> Unit = {},
+    postPrayerCustomText: String = "أستغفر الله (٣ مرات)، اللهم أنت السلام ومنك السلام",
+    onUpdatePostPrayerCustomText: (String) -> Unit = {},
+    prePrayerDuaCustomText: String = "اللهم إني أسألك الهدى والتقى والعفاف والغنى",
+    onUpdatePrePrayerDuaCustomText: (String) -> Unit = {},
+    fajrAdhanSound: String = "makkah",
+    dhuhrAdhanSound: String = "makkah",
+    asrAdhanSound: String = "makkah",
+    maghribAdhanSound: String = "makkah",
+    ishaAdhanSound: String = "makkah",
+    onUpdatePrayerAdhanSound: (PrayerType, String) -> Unit = { _, _ -> },
+    morningAthkarSoundEnabled: Boolean = true,
+    onToggleMorningAthkarSound: (Boolean) -> Unit = {},
+    eveningAthkarSoundEnabled: Boolean = true,
+    onToggleEveningAthkarSound: (Boolean) -> Unit = {},
     prayerOffsets: Map<PrayerType, Int>,
     onSetOffset: (PrayerType, Int) -> Unit,
     onResetOffsets: () -> Unit,
@@ -92,6 +120,10 @@ fun UnifiedAdhanReminderScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) }
+
+    // Dialog for picking prayer adhan sound
+    var showPrayerSoundDialog by remember { mutableStateOf(false) }
+    var selectedPrayerForSoundDialog by remember { mutableStateOf(PrayerType.FAJR) }
 
     // Dialog for adding custom sound
     var showAddSoundDialog by remember { mutableStateOf(false) }
@@ -122,6 +154,49 @@ fun UnifiedAdhanReminderScreen(
     var showPostPrayerTimeDialog by remember { mutableStateOf(false) }
     var postPrayerHourInput by remember { mutableStateOf(postPrayerAthkarTime.split(":").getOrNull(0) ?: "05") }
     var postPrayerMinInput by remember { mutableStateOf(postPrayerAthkarTime.split(":").getOrNull(1) ?: "00") }
+
+    var showFullAthkarDialog by remember { mutableStateOf(false) }
+
+    // Dialogs for picking Dua & Iqama sounds per prayer
+    var showDuaSoundPicker by remember { mutableStateOf(false) }
+    var showIqamaSoundPicker by remember { mutableStateOf(false) }
+    var selectedPrayerForSoundModal by remember { mutableStateOf("الفجر") }
+    var activeHorizontalPrayerIndex by remember { mutableStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
+    val horizontalPrayerListState = rememberLazyListState()
+
+    var localFridayFirstMins by remember(fridayFirstAdhanMinutesBefore) { mutableStateOf(fridayFirstAdhanMinutesBefore) }
+    var localFridaySecondMins by remember(fridaySecondAdhanMinutes) { mutableStateOf(fridaySecondAdhanMinutes) }
+
+    // Text customization dialog states
+    var showDuaTextDialog by remember { mutableStateOf(false) }
+    var currentPrayerForDuaText by remember { mutableStateOf("الفجر") }
+    var customDuaInput by remember { mutableStateOf("") }
+
+    var showSalawatTextDialog by remember { mutableStateOf(false) }
+    var salawatTextInput by remember { mutableStateOf(salawatCustomText) }
+
+    var showMorningTextDialog by remember { mutableStateOf(false) }
+    var morningTextInput by remember { mutableStateOf(morningAthkarCustomText) }
+
+    var showEveningTextDialog by remember { mutableStateOf(false) }
+    var eveningTextInput by remember { mutableStateOf(eveningAthkarCustomText) }
+
+    var showPostPrayerTextDialog by remember { mutableStateOf(false) }
+    var postPrayerTextInput by remember { mutableStateOf(postPrayerCustomText) }
+
+    // Per-prayer timing configurations (الفجر 5د، الظهر 10د، الإقامة، وتذكير قبل الصلاة)
+    var prayerScheduleMap by remember {
+        mutableStateOf(
+            mapOf(
+                "الفجر" to PrayerScheduleItem("الفجر", preMinutes = 10, preEnabled = true, iqamaMinutes = 20, iqamaEnabled = true, postAthkarMinutes = 5, postAthkarEnabled = true, duaSoundId = "dua_pre_athan", iqamaSoundId = "iqama_makkah"),
+                "الظهر" to PrayerScheduleItem("الظهر", preMinutes = 5, preEnabled = true, iqamaMinutes = 15, iqamaEnabled = true, postAthkarMinutes = 10, postAthkarEnabled = true, duaSoundId = "pre_prayer_ayah", iqamaSoundId = "iqama_takbeer"),
+                "العصر" to PrayerScheduleItem("العصر", preMinutes = 5, preEnabled = true, iqamaMinutes = 15, iqamaEnabled = true, postAthkarMinutes = 10, postAthkarEnabled = true, duaSoundId = "pre_prayer_ayah", iqamaSoundId = "iqama_takbeer"),
+                "المغرب" to PrayerScheduleItem("المغرب", preMinutes = 5, preEnabled = true, iqamaMinutes = 10, iqamaEnabled = true, postAthkarMinutes = 5, postAthkarEnabled = true, duaSoundId = "dua_waseela", iqamaSoundId = "iqama_calm"),
+                "العشاء" to PrayerScheduleItem("العشاء", preMinutes = 5, preEnabled = true, iqamaMinutes = 15, iqamaEnabled = true, postAthkarMinutes = 10, postAthkarEnabled = true, duaSoundId = "dua_tasbeeh", iqamaSoundId = "iqama_madinah")
+            )
+        )
+    }
 
     androidx.activity.compose.BackHandler(onBack = onBack)
 
@@ -187,14 +262,14 @@ fun UnifiedAdhanReminderScreen(
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("الأذان والمؤذنون", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) },
+                        text = { Text("الأذان والجمعة", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) },
                         icon = { Icon(Icons.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp)) }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("تذكير الصلاة والإقامة", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) },
-                        icon = { Icon(Icons.Filled.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        text = { Text("تذكير بالأوقات الأخرى", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) },
+                        icon = { Icon(Icons.Filled.Alarm, contentDescription = null, modifier = Modifier.size(16.dp)) }
                     )
                     Tab(
                         selected = selectedTab == 2,
@@ -249,35 +324,171 @@ fun UnifiedAdhanReminderScreen(
                     }
                 }
 
-                // Add sound button & shortcut to creator studio
+                // Add sound button
                 item {
-                    Row(
+                    Button(
+                        onClick = {
+                            newSoundCategory = "adhan"
+                            showAddSoundDialog = true
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Button(
-                            onClick = {
-                                newSoundCategory = "adhan"
-                                showAddSoundDialog = true
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("إضافة صوت أذان", fontSize = 12.sp)
-                        }
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("إضافة صوت أذان جديد", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
 
-                        if (isDeveloperUnlocked) {
-                            OutlinedButton(
-                                onClick = onOpenCreatorStudio,
+                // Auto GPS Location Card
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Icon(Icons.Filled.Build, contentDescription = null, modifier = Modifier.size(16.dp), tint = GoldAccent)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("صانع التطبيق", fontSize = 12.sp)
+                                Surface(
+                                    shape = CircleShape,
+                                    color = EmeraldLight.copy(alpha = 0.15f),
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = EmeraldLight, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                                Column {
+                                    Text(
+                                        text = "تشغيل الموقع الجغرافي تلقائياً (GPS)",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (autoGpsLocation) "مفعّل: تحديث المواقيت والقبلة تلقائياً عبر GPS" else "متوقف: استخدام المدينة المحددة يدوياً",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = autoGpsLocation,
+                                onCheckedChange = onToggleAutoGpsLocation
+                            )
+                        }
+                    }
+                }
+
+                // Per-prayer Adhan Sound Customization (الفجر، الظهر، العصر، المغرب، العشاء)
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, GoldAccent.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "تخصيص صوت الأذان لكل صلاة (الفجر، الظهر، العصر، المغرب، العشاء) 🕌",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldAccent
+                                    )
+                                    Text(
+                                        text = "إمكانية تعيين مؤذن وصوت مختلف لكل صلاة مع الاستماع المباشر",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Icon(Icons.Filled.Tune, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                            val prayersList = listOf(
+                                Triple(PrayerType.FAJR, "أذان الفجر 🌅", fajrAdhanSound),
+                                Triple(PrayerType.DHUHR, "أذان الظهر ☀️", dhuhrAdhanSound),
+                                Triple(PrayerType.ASR, "أذان العصر 🌤️", asrAdhanSound),
+                                Triple(PrayerType.MAGHRIB, "أذان المغرب 🌇", maghribAdhanSound),
+                                Triple(PrayerType.ISHA, "أذان العشاء 🌙", ishaAdhanSound)
+                            )
+
+                            prayersList.forEach { (pType, pName, soundId) ->
+                                val curAudio = adhanAudiosList.find { it.id == soundId }
+                                    ?: adhanAudiosList.find { it.id == selectedMuadhinId }
+                                    ?: adhanAudiosList.firstOrNull()
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(text = pName, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                text = "المؤذن: ${curAudio?.nameAr ?: "أذان الحرم المكي"}",
+                                                fontSize = 11.sp,
+                                                color = GoldAccent
+                                            )
+                                        }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            if (curAudio != null) {
+                                                IconButton(
+                                                    onClick = { onTestAudio(curAudio.audioUrl, "${pName} - ${curAudio.nameAr}") },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    val isThisPlaying = playbackState.isPlaying && playbackState.currentTitle.contains(pName)
+                                                    Icon(
+                                                        imageVector = if (isThisPlaying) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                                        contentDescription = "استماع",
+                                                        tint = GoldAccent
+                                                    )
+                                                }
+                                            }
+                                            FilledTonalButton(
+                                                onClick = {
+                                                    selectedPrayerForSoundDialog = pType
+                                                    showPrayerSoundDialog = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(12.dp))
+                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Text("تعديل الصوت 🎵", fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -286,7 +497,7 @@ fun UnifiedAdhanReminderScreen(
                 // Adhan Audios List
                 item {
                     Text(
-                        text = "اختر المؤذن المفضل للصلوات الخمس:",
+                        text = "المؤذن الافتراضي لجميع الصلوات:",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -353,65 +564,7 @@ fun UnifiedAdhanReminderScreen(
                     }
                 }
 
-                // Move sound deletion to Creator Studio notification card
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                        border = BorderStroke(1.dp, GoldAccent.copy(alpha = 0.4f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(Icons.Filled.Build, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(20.dp))
-                                Column {
-                                    Text(
-                                        text = "إدارة وحذف الأصوات عبر صانع التطبيق",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (isDeveloperUnlocked) {
-                                        Text(
-                                            text = "لحذف أي صوت أو إضافة تسجيلات جديدة، انتقل إلى صانع التطبيق",
-                                            fontSize = 10.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    } else {
-                                        Text(
-                                            text = "أصوات أذان الجمعة والتنبيهات المعتمدة",
-                                            fontSize = 10.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                            if (isDeveloperUnlocked) {
-                                OutlinedButton(
-                                    onClick = onOpenCreatorStudio,
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
-                                    Text("فتح الصانع", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Friday Adhans with sound selector
+                // Friday Adhans with sound and timing selectors
                 item {
                     val firstAdhanAudio = adhanAudiosList.find { it.id == fridayFirstAdhanSoundId }
                         ?: adhanAudiosList.find { it.category == "friday" }
@@ -435,7 +588,7 @@ fun UnifiedAdhanReminderScreen(
                             ) {
                                 Column {
                                     Text(text = "إعدادات أذان يوم الجمعة المبارك", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
-                                    Text(text = "تخصيص تفعيل وتغيير أصوات الأذان الأول والثاني", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = "تخصيص الوقت وتغيير أصوات الأذان الأول والثاني", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Icon(Icons.Filled.Mosque, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(22.dp))
                             }
@@ -452,7 +605,7 @@ fun UnifiedAdhanReminderScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("الأذان الأول ليوم الجمعة (تنبيه السعي)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Text("يُرفع قبل وقت الجمعة بـ 20 دقيقة لتنبيه المسلمين", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("يُرفع قبل صلاة الجمعة بـ $localFridayFirstMins دقيقة لتنبيه المصلين", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Switch(
                                     checked = fridayFirstAdhan,
@@ -461,6 +614,40 @@ fun UnifiedAdhanReminderScreen(
                             }
 
                             if (fridayFirstAdhan) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "تعديل وقت الأذان الأول (قبل صلاة الجمعة):",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    listOf(15 to "15د", 20 to "20د", 30 to "30د", 45 to "45د", 60 to "ساعة").forEach { (mins, lbl) ->
+                                        val isSelected = localFridayFirstMins == mins
+                                        Surface(
+                                            onClick = {
+                                                localFridayFirstMins = mins
+                                                onUpdateFridayMinutes(mins, localFridaySecondMins)
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSelected) GoldAccent else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = lbl,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
@@ -524,7 +711,11 @@ fun UnifiedAdhanReminderScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("الأذان الثاني ليوم الجمعة (صعود المنبر)", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Text("يُرفع عند صعود الإمام إلى المنبر لإلقاء الخطبة", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = if (localFridaySecondMins == 0) "يُرفع مباشرة عند صعود الإمام إلى المنبر" else "يُرفع بعد الأذان الأول بـ $localFridaySecondMins دقيقة",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                                 Switch(
                                     checked = fridaySecondAdhan,
@@ -533,6 +724,40 @@ fun UnifiedAdhanReminderScreen(
                             }
 
                             if (fridaySecondAdhan) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "تعديل وقت موعد الأذان الثاني:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    listOf(0 to "عند المنبر", 10 to "بعد 10د", 15 to "بعد 15د", 20 to "بعد 20د", 30 to "بعد 30د").forEach { (mins, lbl) ->
+                                        val isSelected = localFridaySecondMins == mins
+                                        Surface(
+                                            onClick = {
+                                                localFridaySecondMins = mins
+                                                onUpdateFridayMinutes(localFridayFirstMins, mins)
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSelected) EmeraldLight else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = lbl,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
@@ -589,7 +814,9 @@ fun UnifiedAdhanReminderScreen(
             }
         }
 
-        // TAB 1: تذكير الصلاة والإقامة
+        // ==========================================
+        // TAB 1: تذكير بالأوقات الأخرى
+        // ==========================================
         if (selectedTab == 1) {
             LazyColumn(
                 modifier = Modifier
@@ -598,58 +825,207 @@ fun UnifiedAdhanReminderScreen(
                 contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Top Action: Add Custom Sound
+                // Header Banner
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                        border = BorderStroke(1.dp, GoldAccent.copy(alpha = 0.3f))
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Surface(
+                                shape = CircleShape,
+                                color = GoldAccent.copy(alpha = 0.2f),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Filled.Alarm, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                            Column {
                                 Text(
-                                    text = "إدارة مكتبة الأصوات والتنبيهات",
-                                    fontSize = 14.sp,
+                                    text = "تذكير بالأوقات الأخرى",
+                                    fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "يمكنك إضافة أي صوت للتذكير أو حذفه واختياره للصلوات والإقامة",
+                                    text = "تخصيص كامل للأوقات، النصوص، والأصوات لكل تنبيه وتذكير",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            }
-                            Button(
-                                onClick = {
-                                    newSoundCategory = "reminder"
-                                    showAddSoundDialog = true
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("إضافة صوت", fontSize = 11.sp)
                             }
                         }
                     }
                 }
 
-                // 1. تذكير بعد الصلاة (الإقامة)
+                // 1. تذكير الصلاة على النبي ﷺ دورياً (كل 5 إلى 30 دقيقة + تعديل النص + تعديل الصوت)
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Filled.Favorite, contentDescription = null, tint = EmeraldLight, modifier = Modifier.size(22.dp))
+                                    Column {
+                                        Text(
+                                            text = "تذكير الصلاة على النبي ﷺ",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EmeraldLight
+                                        )
+                                        Text(
+                                            text = "تنبيه دوري مع إمكانية تعديل النص والصوت والوقت",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                FilledTonalButton(
+                                    onClick = { onPlaySalawatTest(salawatSoundType) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmeraldLight)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("تجربة الصوت", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            // Interval chips (كل 5 دقائق حتى 30 دقيقة)
+                            Text(text = "تكرار التنبيه كل (من 5 إلى 30 دقيقة):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                listOf(5, 10, 15, 20, 25, 30).forEach { mins ->
+                                    val isSelected = salawatIntervalMinutes == mins
+                                    Surface(
+                                        onClick = { onUpdateSalawatSettings(mins, salawatSoundType) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) EmeraldLight else MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = "$mins د",
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Custom Text Card with Edit Button
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = EmeraldLight.copy(alpha = 0.1f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(text = "النص المقروء للتذكير:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldLight)
+                                        OutlinedButton(
+                                            onClick = {
+                                                salawatTextInput = salawatCustomText
+                                                showSalawatTextDialog = true
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("تعديل النص ✍️", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    Text(
+                                        text = salawatCustomText,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+
+                            // Sound Selection
+                            Text(text = "اختر صوت التنبيه المعتمد:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            val salawatVoiceOptions = listOf(
+                                Triple("tts_calm", "صوت هادئ خاشع", "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ ﷺ"),
+                                Triple("tts_reverent", "صوت وقور مبجل مع الآل والصحب", "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى سَيِّدِنَا مُحَمَّدٍ وَآلِهِ"),
+                                Triple("voice_haram_makkah", "صوت الحرم المكي الشريف", "الصَّلَاةُ وَالسَّلَامُ عَلَيْكَ يَا رَسُولَ اللهِ"),
+                                Triple("chime_gentle", "رنين هادئ", "نغمة أثيرية إسلامية مريحة للقلب")
+                            )
+
+                            salawatVoiceOptions.forEach { (soundKey, soundTitle, soundDesc) ->
+                                val isSelected = salawatSoundType == soundKey
+                                Surface(
+                                    onClick = { onUpdateSalawatSettings(salawatIntervalMinutes, soundKey) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) EmeraldLight.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = if (isSelected) BorderStroke(1.dp, EmeraldLight) else null,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            RadioButton(
+                                                selected = isSelected,
+                                                onClick = { onUpdateSalawatSettings(salawatIntervalMinutes, soundKey) },
+                                                colors = RadioButtonDefaults.colors(selectedColor = EmeraldLight)
+                                            )
+                                            Column {
+                                                Text(text = soundTitle, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                                Text(text = soundDesc, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                        IconButton(onClick = { onPlaySalawatTest(soundKey) }, modifier = Modifier.size(28.dp)) {
+                                            Icon(Icons.Filled.VolumeUp, contentDescription = "استماع", tint = EmeraldLight, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. تذكير بعد الأذان (الإقامة) - حسب كل صلاة وتعديل الوقت والصوت
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -657,13 +1033,13 @@ fun UnifiedAdhanReminderScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "تذكير بعد الصلاة (الإقامة)",
+                                        text = "تذكير بعد الأذان (الإقامة)",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        text = "تنبيه صوتي باقتراب إقامة الصلاة بعد الأذان بمقدار محدد",
+                                        text = "تنبيه بعد الأذان بـ $iqamaMinutesAfter دقيقة",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -675,72 +1051,70 @@ fun UnifiedAdhanReminderScreen(
                             }
 
                             if (iqamaReminderEnabled) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(text = "وقت الإقامة بعد الأذان بـ:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "تعديل وقت الإقامة بعد الأذان (من 5 إلى 30 دقيقة):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(vertical = 6.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    listOf(5, 10, 15, 20, 30).forEach { mins ->
+                                    listOf(5, 10, 15, 20, 25, 30).forEach { mins ->
                                         val isSelected = iqamaMinutesAfter == mins
                                         Surface(
                                             onClick = { onUpdateIqamaSettings(true, mins, iqamaSoundType) },
                                             shape = RoundedCornerShape(8.dp),
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.weight(1f)
                                         ) {
                                             Text(
-                                                text = "$mins دقائق",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                                text = "$mins د",
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
                                             )
                                         }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(text = "اختر صوت الإقامة من القائمة:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(modifier = Modifier.height(6.dp))
+                                // Sound Picker button
+                                val currentIqamaAudio = adhanAudiosList.find { it.id == iqamaSoundType }
+                                    ?: adhanAudiosList.find { it.category == "iqama" }
+                                    ?: adhanAudiosList.firstOrNull()
 
-                                // Sound Picker for Iqama
-                                adhanAudiosList.forEach { sound ->
-                                    val isSoundSelected = iqamaSoundType == sound.id
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { onUpdateIqamaSettings(true, iqamaMinutesAfter, sound.id) }
-                                            .padding(vertical = 4.dp, horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            RadioButton(
-                                                selected = isSoundSelected,
-                                                onClick = { onUpdateIqamaSettings(true, iqamaMinutesAfter, sound.id) },
-                                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
-                                            )
-                                            Column {
-                                                Text(
-                                                    text = sound.nameAr,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isSoundSelected) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                                Text(text = sound.descriptionAr, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(text = "صوت الإقامة المعتمد:", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                            Text(text = currentIqamaAudio?.nameAr ?: "صوت الإقامة", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                         }
-
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(
-                                                onClick = { onTestAudio(sound.audioUrl, sound.nameAr) },
-                                                modifier = Modifier.size(32.dp)
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            if (currentIqamaAudio != null) {
+                                                IconButton(
+                                                    onClick = { onTestAudio(currentIqamaAudio.audioUrl, currentIqamaAudio.nameAr) },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(Icons.Filled.VolumeUp, contentDescription = "استماع", tint = MaterialTheme.colorScheme.primary)
+                                                }
+                                            }
+                                            FilledTonalButton(
+                                                onClick = {
+                                                    selectedPrayerForSoundModal = "عام"
+                                                    showIqamaSoundPicker = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                             ) {
-                                                Icon(Icons.Filled.PlayArrow, contentDescription = "استماع", tint = GoldAccent, modifier = Modifier.size(18.dp))
+                                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("تعديل الصوت", fontSize = 11.sp)
                                             }
                                         }
                                     }
@@ -750,14 +1124,15 @@ fun UnifiedAdhanReminderScreen(
                     }
                 }
 
-                // 2. تذكير قبل الصلاة
+                // 3. تذكير قبل الصلاة (الدعاء) - تعديل الوقت (5-30د) + النص + الصوت
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -765,13 +1140,13 @@ fun UnifiedAdhanReminderScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "تذكير قبل الصلاة",
+                                        text = "تذكير قبل الصلاة (الدعاء والتنبيه)",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = GoldAccent
                                     )
                                     Text(
-                                        text = "تنبيه للاستعداد والوضوء قبل دخول وقت الصلاة",
+                                        text = "تنبيه قبل الأذان بـ $prePrayerMinutesBefore دقيقة بالدعاء المبارك",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -783,72 +1158,409 @@ fun UnifiedAdhanReminderScreen(
                             }
 
                             if (prePrayerBigMessage) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(text = "التنبيه قبل الأذان بـ:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "تعديل وقت الدعاء قبل الأذان (من 5 إلى 30 دقيقة):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(vertical = 6.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    listOf(5, 10, 15, 20).forEach { mins ->
+                                    listOf(5, 10, 15, 20, 25, 30).forEach { mins ->
                                         val isSelected = prePrayerMinutesBefore == mins
                                         Surface(
                                             onClick = { onUpdatePrePrayerSettings(true, mins, prePrayerSoundType) },
                                             shape = RoundedCornerShape(8.dp),
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                                            color = if (isSelected) GoldAccent else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.weight(1f)
                                         ) {
                                             Text(
-                                                text = "$mins دقائق",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                                text = "$mins د",
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
                                             )
                                         }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(text = "اختيار أي صوت للتذكير قبل الصلاة:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(modifier = Modifier.height(6.dp))
+                                // Editable Dua Text Box
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = GoldAccent.copy(alpha = 0.1f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(text = "نص دعاء وتنبيه قبل الصلاة:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
+                                            OutlinedButton(
+                                                onClick = {
+                                                    currentPrayerForDuaText = "عام"
+                                                    customDuaInput = prePrayerDuaCustomText
+                                                    showDuaTextDialog = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldAccent)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("تعديل النص ✍️", fontSize = 10.sp, color = GoldAccent, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        Text(
+                                            text = prePrayerDuaCustomText,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
 
-                                // Sound Picker for Pre-Prayer
-                                adhanAudiosList.forEach { sound ->
-                                    val isSoundSelected = prePrayerSoundType == sound.id
+                                // Sound Picker button
+                                val currentDuaAudio = adhanAudiosList.find { it.id == prePrayerSoundType }
+                                    ?: adhanAudiosList.find { it.category == "dua" }
+                                    ?: adhanAudiosList.firstOrNull()
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = GoldAccent.copy(alpha = 0.15f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(text = "صوت الدعاء المعتمد:", fontSize = 11.sp, color = GoldAccent)
+                                            Text(text = currentDuaAudio?.nameAr ?: "دعاء وتنبيه", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            if (currentDuaAudio != null) {
+                                                IconButton(
+                                                    onClick = { onTestAudio(currentDuaAudio.audioUrl, currentDuaAudio.nameAr) },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(Icons.Filled.VolumeUp, contentDescription = "استماع", tint = GoldAccent)
+                                                }
+                                            }
+                                            FilledTonalButton(
+                                                onClick = {
+                                                    selectedPrayerForSoundModal = "عام"
+                                                    showDuaSoundPicker = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("تعديل الصوت", fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. تذكير أذكار ما بعد الصلاة (على شكل نص صامت بدون صوت + تعديل الوقت 5-30د + تعديل النص)
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, EmeraldLight.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "تذكير أذكار بعد الصلاة (بالنص)",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmeraldLight
+                                    )
+                                    Text(
+                                        text = "تنبيه بالنص صامت بدون صوت بعد الصلاة بـ $postPrayerDelayMinutes دقيقة",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = postPrayerAthkarReminder,
+                                    onCheckedChange = { onUpdatePostPrayerAthkar(it, postPrayerAthkarTime) }
+                                )
+                            }
+
+                            if (postPrayerAthkarReminder) {
+                                // Silent Notification Badge
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = EmeraldLight.copy(alpha = 0.15f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(Icons.Filled.VolumeOff, contentDescription = null, tint = EmeraldLight, modifier = Modifier.size(16.dp))
+                                        Text(
+                                            text = "تذكير بالنص صامت بدون صوت (يظهر في الإشعارات وعلى الشاشة)",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = EmeraldLight
+                                        )
+                                    }
+                                }
+
+                                Text(text = "تعديل وقت الظهور بعد الصلاة (من 5 إلى 30 دقيقة):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    listOf(5, 10, 15, 20, 25, 30).forEach { mins ->
+                                        val isSelected = postPrayerDelayMinutes == mins
+                                        Surface(
+                                            onClick = { onUpdatePostPrayerDelayMinutes(mins) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSelected) EmeraldLight else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = "$mins د",
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Editable Post-Prayer Athkar Text
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(text = "النص المقروء لأذكار بعد الصلاة:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldLight)
+                                            OutlinedButton(
+                                                onClick = {
+                                                    postPrayerTextInput = postPrayerCustomText
+                                                    showPostPrayerTextDialog = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp), tint = EmeraldLight)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("تعديل النص ✍️", fontSize = 10.sp, color = EmeraldLight, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        Text(
+                                            text = postPrayerCustomText,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+
+                                Button(
+                                    onClick = { showFullAthkarDialog = true },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent, contentColor = Color.Black),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("عرض أذكار الصلاة كاملة 📜 (تذكير بالنص صامت)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 5. تذكير أذكار الصباح (نص + صوت + تعديل الوقت 5-30د + تعديل النص + تعديل الصوت)
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "تذكير أذكار الصباح (نص + صوت)",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldAccent
+                                    )
+                                    Text(
+                                        text = "تنبيه بالصوت والنص في الموعد المحدد: $morningAthkarTime",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = morningAthkarReminder,
+                                    onCheckedChange = { onUpdateMorningAthkar(it, morningAthkarTime) }
+                                )
+                            }
+
+                            if (morningAthkarReminder) {
+                                Text(text = "أوقات مقترحة سريعة لأذكار الصباح (من 5 إلى 30 دقيقة بعد الشروق/الفجر):", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    listOf("05:30" to "5د", "06:00" to "10د", "06:30" to "15د", "07:00" to "20د", "07:30" to "30د").forEach { (timeVal, lbl) ->
+                                        val isSelected = morningAthkarTime == timeVal
+                                        Surface(
+                                            onClick = { onUpdateMorningAthkar(true, timeVal) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSelected) GoldAccent else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = lbl,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Custom Morning Text Box
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = GoldAccent.copy(alpha = 0.1f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(text = "نص أذكار الصباح:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
+                                            OutlinedButton(
+                                                onClick = {
+                                                    morningTextInput = morningAthkarCustomText
+                                                    showMorningTextDialog = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp), tint = GoldAccent)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("تعديل النص ✍️", fontSize = 10.sp, color = GoldAccent, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        Text(
+                                            text = morningAthkarCustomText,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+
+                                // Sound Notification Toggle Switch for Morning Athkar
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable { onUpdatePrePrayerSettings(true, prePrayerMinutesBefore, sound.id) }
-                                            .padding(vertical = 4.dp, horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                            .padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "تشغيل الإشعار الصوتي لأذكار الصباح",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = if (morningAthkarSoundEnabled) "مفعّل: تشغيل الصوت المعتمد مع الإشعار" else "صامت: تذكير بالنص فقط دون صوت",
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Switch(
+                                            checked = morningAthkarSoundEnabled,
+                                            onCheckedChange = onToggleMorningAthkarSound
+                                        )
+                                    }
+                                }
+
+                                if (morningAthkarSoundEnabled) {
+                                    // Sound Picker button
+                                    val currentMorningAudio = adhanAudiosList.find { it.id == morningAthkarSoundId }
+                                        ?: adhanAudiosList.find { it.category == "athkar" }
+                                        ?: adhanAudiosList.firstOrNull()
+
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = GoldAccent.copy(alpha = 0.15f),
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            RadioButton(
-                                                selected = isSoundSelected,
-                                                onClick = { onUpdatePrePrayerSettings(true, prePrayerMinutesBefore, sound.id) },
-                                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
-                                            )
-                                            Column {
-                                                Text(
-                                                    text = sound.nameAr,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isSoundSelected) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                                Text(text = sound.descriptionAr, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(text = "صوت أذكار الصباح المعتمد:", fontSize = 11.sp, color = GoldAccent)
+                                                Text(text = currentMorningAudio?.nameAr ?: "صوت أذكار الصباح", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                             }
-                                        }
-
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(
-                                                onClick = { onTestAudio(sound.audioUrl, sound.nameAr) },
-                                                modifier = Modifier.size(32.dp)
-                                            ) {
-                                                Icon(Icons.Filled.PlayArrow, contentDescription = "استماع", tint = GoldAccent, modifier = Modifier.size(18.dp))
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                if (currentMorningAudio != null) {
+                                                    IconButton(
+                                                        onClick = { onTestAudio(currentMorningAudio.audioUrl, currentMorningAudio.nameAr) },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(Icons.Filled.VolumeUp, contentDescription = "استماع", tint = GoldAccent)
+                                                    }
+                                                }
+                                                FilledTonalButton(
+                                                    onClick = { showMorningSoundPicker = true },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                                ) {
+                                                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("تعديل الصوت", fontSize = 11.sp)
+                                                }
                                             }
                                         }
                                     }
@@ -858,255 +1570,15 @@ fun UnifiedAdhanReminderScreen(
                     }
                 }
 
-                // 3. أذكار الصباح والمساء وتحديد التوقيت بدقة (مثل 15:00)
+                // 6. تذكير أذكار المساء (نص + صوت + تعديل الوقت 5-30د + تعديل النص + تعديل الصوت)
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "توقيت إشعارات أذكار الصباح والمساء",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = GoldAccent
-                            )
-                            Text(
-                                text = "حدد الوقت الدقيق لإظهار إشعار الأذكار مع خيار التوقيت المخصص مثل 15:00",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // أذكار الصباح
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = "إشعار أذكار الصباح", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(text = "التوقيت الحالي: $morningAthkarTime صباحاً", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
-                                    val morningSoundObj = adhanAudiosList.find { it.id == morningAthkarSoundId }
-                                    Text(
-                                        text = "صوت التنبيه: ${morningSoundObj?.nameAr ?: "تنبيه أذكار الصباح"}",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val morningSoundObj = adhanAudiosList.find { it.id == morningAthkarSoundId }
-                                    IconButton(
-                                        onClick = {
-                                            val url = morningSoundObj?.audioUrl ?: "https://cdn.aladhan.com/audio/adhans/athkar_morning.mp3"
-                                            onTestAudio(url, morningSoundObj?.nameAr ?: "أذكار الصباح")
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Filled.VolumeUp, contentDescription = "معاينة الصوت", tint = GoldAccent, modifier = Modifier.size(18.dp))
-                                    }
-                                    OutlinedButton(
-                                        onClick = { showMorningSoundPicker = true },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text("تعديل الصوت", fontSize = 10.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    OutlinedButton(
-                                        onClick = { showMorningTimeDialog = true },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text("تعديل الوقت", fontSize = 10.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Switch(
-                                        checked = morningAthkarReminder,
-                                        onCheckedChange = { onUpdateMorningAthkar(it, morningAthkarTime) }
-                                    )
-                                }
-                            }
-
-                            Divider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-
-                            // أذكار المساء (مع خيار 15:00 المقترح)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = "إشعار أذكار المساء", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(text = "التوقيت الحالي: $eveningAthkarTime (مثل 15:00 عصراً)", fontSize = 11.sp, color = GoldAccent)
-                                    val eveningSoundObj = adhanAudiosList.find { it.id == eveningAthkarSoundId }
-                                    Text(
-                                        text = "صوت التنبيه: ${eveningSoundObj?.nameAr ?: "تنبيه أذكار المساء"}",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val eveningSoundObj = adhanAudiosList.find { it.id == eveningAthkarSoundId }
-                                    IconButton(
-                                        onClick = {
-                                            val url = eveningSoundObj?.audioUrl ?: "https://cdn.aladhan.com/audio/adhans/athkar_evening.mp3"
-                                            onTestAudio(url, eveningSoundObj?.nameAr ?: "أذكار المساء")
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Filled.VolumeUp, contentDescription = "معاينة الصوت", tint = GoldAccent, modifier = Modifier.size(18.dp))
-                                    }
-                                    OutlinedButton(
-                                        onClick = { showEveningSoundPicker = true },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text("تعديل الصوت", fontSize = 10.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    OutlinedButton(
-                                        onClick = { showEveningTimeDialog = true },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text("تعديل الوقت", fontSize = 10.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Switch(
-                                        checked = eveningAthkarReminder,
-                                        onCheckedChange = { onUpdateEveningAthkar(it, eveningAthkarTime) }
-                                    )
-                                }
-                            }
-
-                            // Quick preset chips for Evening Athkar
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = "أوقات مقترحة سريعة لأذكار المساء:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(top = 4.dp)
-                            ) {
-                                listOf("15:00", "15:30", "16:00", "17:00").forEach { timeOption ->
-                                    val isSelected = eveningAthkarTime == timeOption
-                                    Surface(
-                                        onClick = { onUpdateEveningAthkar(true, timeOption) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isSelected) GoldAccent else MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
-                                        Text(
-                                            text = if (timeOption == "15:00") "15:00 (المقترح)" else timeOption,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Divider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-
-                            // أذكار ما بعد الصلاة على الشاشة (مثل بعد 5 صباحاً)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = "تذكير أذكار ما بعد الصلاة على الشاشة", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(text = "وقت الظهور: $postPrayerAthkarTime (مثل بعد 5:00 صباحاً بعد الفجر)", fontSize = 11.sp, color = EmeraldLight)
-                                    val postPrayerSoundObj = adhanAudiosList.find { it.id == postPrayerAthkarSoundId }
-                                    Text(
-                                        text = "صوت التنبيه: ${postPrayerSoundObj?.nameAr ?: "تنبيه أذكار الصلاة"}",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val postPrayerSoundObj = adhanAudiosList.find { it.id == postPrayerAthkarSoundId }
-                                    IconButton(
-                                        onClick = {
-                                            val url = postPrayerSoundObj?.audioUrl ?: "https://cdn.aladhan.com/audio/adhans/athkar_morning.mp3"
-                                            onTestAudio(url, postPrayerSoundObj?.nameAr ?: "أذكار ما بعد الصلاة")
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(Icons.Filled.VolumeUp, contentDescription = "معاينة الصوت", tint = GoldAccent, modifier = Modifier.size(18.dp))
-                                    }
-                                    OutlinedButton(
-                                        onClick = { showPostPrayerSoundPicker = true },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text("تعديل الصوت", fontSize = 10.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    OutlinedButton(
-                                        onClick = { showPostPrayerTimeDialog = true },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text("تعديل الوقت", fontSize = 10.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Switch(
-                                        checked = postPrayerAthkarReminder,
-                                        onCheckedChange = { onUpdatePostPrayerAthkar(it, postPrayerAthkarTime) }
-                                    )
-                                }
-                            }
-
-                            // Quick preset chips for Post Prayer Athkar
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = "أوقات مقترحة سريعة لأذكار بعد الصلاة:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(top = 4.dp)
-                            ) {
-                                listOf("05:00", "05:30", "06:00", "12:45", "15:45").forEach { timeOption ->
-                                    val isSelected = postPrayerAthkarTime == timeOption
-                                    Surface(
-                                        onClick = { onUpdatePostPrayerAthkar(true, timeOption) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isSelected) EmeraldLight else MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
-                                        Text(
-                                            text = if (timeOption == "05:00") "05:00 (بعد 5 ص المقترح)" else timeOption,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 4. الصلاة على النبي ﷺ دورياً مع تخصيص الصوت
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1114,126 +1586,155 @@ fun UnifiedAdhanReminderScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "تذكير الصلاة على النبي ﷺ دورياً",
+                                        text = "تذكير أذكار المساء (نص + صوت)",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        text = "تنبيه صوتي عذب بالصلاة والسلام على رسول الله ﷺ في فترات منتظمة",
+                                        text = "تنبيه بالصوت والنص في الموعد المحدد: $eveningAthkarTime",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                FilledTonalButton(
-                                    onClick = { onPlaySalawatTest(salawatSoundType) },
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Icon(Icons.Filled.VolumeUp, contentDescription = "تجربة الصوت الحالي", modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("تجربة الصوت", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
+                                Switch(
+                                    checked = eveningAthkarReminder,
+                                    onCheckedChange = { onUpdateEveningAthkar(it, eveningAthkarTime) }
+                                )
                             }
 
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(text = "التكرار كل:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            ) {
-                                listOf(1 to "1 د", 5 to "5 د", 10 to "10 د", 15 to "15 د", 30 to "30 د", 60 to "ساعة").forEach { (mins, label) ->
-                                    val isSelected = salawatIntervalMinutes == mins
-                                    Surface(
-                                        onClick = { onUpdateSalawatSettings(mins, salawatSoundType) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
+                            if (eveningAthkarReminder) {
+                                Text(text = "أوقات مقترحة سريعة لأذكار المساء (من 5 إلى 30 دقيقة بعد العصر):", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    listOf("15:30" to "5د", "16:00" to "10د", "16:30" to "15د", "17:00" to "20د", "17:30" to "30د").forEach { (timeVal, lbl) ->
+                                        val isSelected = eveningAthkarTime == timeVal
+                                        Surface(
+                                            onClick = { onUpdateEveningAthkar(true, timeVal) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = lbl,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Custom Evening Text Box
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(text = "نص أذكار المساء:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                            OutlinedButton(
+                                                onClick = {
+                                                    eveningTextInput = eveningAthkarCustomText
+                                                    showEveningTextDialog = true
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("تعديل النص ✍️", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
                                         Text(
-                                            text = label,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                            text = eveningAthkarCustomText,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
-                            }
 
-                            Divider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-
-                            // Voice / Sound Customization for Salawat ("تخصيص صوت لتذكير الصلاة على النبي")
-                            Text(
-                                text = "اختر الصوت المفضل للتنبيه بالصلاة على النبي ﷺ:",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = GoldAccent
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            val salawatVoiceOptions = listOf(
-                                Triple("tts_calm", "صوت هادئ خاشع", "اللَّهُمَّ صَلِّ وَسَلِّمْ وَبَارِكْ عَلَى نَبِيِّنَا مُحَمَّدٍ ﷺ"),
-                                Triple("tts_reverent", "صوت وقور مبجل مع الآل والصحب", "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَصَحْبِهِ أَجْمَعِينَ"),
-                                Triple("tts_ibrahimi", "الصيغة الإبراهيمية المباركة", "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَى إِبْرَاهِيمَ"),
-                                Triple("voice_haram_makkah", "صوت الحرم المكي الشريف", "الصَّلَاةُ وَالسَّلَامُ عَلَيْكَ يَا رَسُولَ اللهِ بنبرة الحرم المكي"),
-                                Triple("voice_madinah_nabawi", "صوت المسجد النبوي الشريف", "يَا طَيِّبَةَ الْخَيْرِ، صَلَوَاتُ رَبِّي وَسَلَامُهُ عَلَى نَبِيِّ الرَّحْمَةِ"),
-                                Triple("chime_gentle", "نغمة أثيرية إسلامية هادئة", "رنين نقي متناغم ومريح للقلب"),
-                                Triple("chime_madinah", "رنين مقامات روحانية", "نغمات وترية مستوحاة من سكينة المدينة المنورة")
-                            )
-
-                            salawatVoiceOptions.forEach { (soundKey, soundTitle, soundDesc) ->
-                                val isSelected = salawatSoundType == soundKey
+                                // Sound Notification Toggle Switch for Evening Athkar
                                 Surface(
-                                    onClick = { onUpdateSalawatSettings(salawatIntervalMinutes, soundKey) },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    border = if (isSelected) BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary) else null,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                                            .padding(10.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            RadioButton(
-                                                selected = isSelected,
-                                                onClick = { onUpdateSalawatSettings(salawatIntervalMinutes, soundKey) },
-                                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "تشغيل الإشعار الصوتي لأذكار المساء",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
-                                            Column {
-                                                Text(
-                                                    text = soundTitle,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    text = soundDesc,
-                                                    fontSize = 10.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
+                                            Text(
+                                                text = if (eveningAthkarSoundEnabled) "مفعّل: تشغيل الصوت المعتمد مع الإشعار" else "صامت: تذكير بالنص فقط دون صوت",
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
+                                        Switch(
+                                            checked = eveningAthkarSoundEnabled,
+                                            onCheckedChange = onToggleEveningAthkarSound
+                                        )
+                                    }
+                                }
 
-                                        IconButton(
-                                            onClick = { onPlaySalawatTest(soundKey) },
-                                            modifier = Modifier.size(32.dp)
+                                if (eveningAthkarSoundEnabled) {
+                                    // Sound Picker button
+                                    val currentEveningAudio = adhanAudiosList.find { it.id == eveningAthkarSoundId }
+                                        ?: adhanAudiosList.find { it.category == "athkar" }
+                                        ?: adhanAudiosList.firstOrNull()
+
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.PlayArrow,
-                                                contentDescription = "استماع للصوت",
-                                                tint = GoldAccent,
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(text = "صوت أذكار المساء المعتمد:", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                                Text(text = currentEveningAudio?.nameAr ?: "صوت أذكار المساء", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                if (currentEveningAudio != null) {
+                                                    IconButton(
+                                                        onClick = { onTestAudio(currentEveningAudio.audioUrl, currentEveningAudio.nameAr) },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(Icons.Filled.VolumeUp, contentDescription = "استماع", tint = MaterialTheme.colorScheme.primary)
+                                                    }
+                                                }
+                                                FilledTonalButton(
+                                                    onClick = { showEveningSoundPicker = true },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                                ) {
+                                                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("تعديل الصوت", fontSize = 11.sp)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1244,7 +1745,9 @@ fun UnifiedAdhanReminderScreen(
             }
         }
 
-        // TAB 2: دقائق المواقيت (Prayer Time Adjustments)
+        // ==========================================
+        // TAB 3: دقائق المواقيت (Prayer Time Adjustments)
+        // ==========================================
         if (selectedTab == 2) {
             LazyColumn(
                 modifier = Modifier
@@ -1904,4 +2407,606 @@ fun UnifiedAdhanReminderScreen(
             }
         )
     }
+
+    if (showFullAthkarDialog) {
+        FullPostPrayerAthkarBigMessageDialog(
+            onDismiss = { showFullAthkarDialog = false }
+        )
+    }
+
+    // Modal: Choose sound for Pre-Prayer Dua
+    if (showDuaSoundPicker) {
+        var applyDuaToAll by remember { mutableStateOf(false) }
+        val currentSoundId = prayerScheduleMap[selectedPrayerForSoundModal]?.duaSoundId ?: "dua_pre_athan"
+        val availableDuaAudios = adhanAudiosList.filter {
+            it.category == "dua" || it.category == "reminder" || it.category == "athkar" || it.category == "adhan"
+        }.ifEmpty { adhanAudiosList }
+
+        AlertDialog(
+            onDismissRequest = { showDuaSoundPicker = false },
+            title = {
+                Column {
+                    Text(
+                        text = "اختر صوت الدعاء والتنبيه لصلاة $selectedPrayerForSoundModal",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = GoldAccent
+                    )
+                    Text(
+                        text = "يمكنك الاستماع للتسجيل وتعيينه للتنبيه قبل الأذان",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 340.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(availableDuaAudios) { audio ->
+                            val isSelected = audio.id == currentSoundId
+                            Card(
+                                onClick = {
+                                    if (applyDuaToAll) {
+                                        prayerScheduleMap = prayerScheduleMap.mapValues { (_, item) ->
+                                            item.copy(duaSoundId = audio.id)
+                                        }
+                                    } else {
+                                        val cur = prayerScheduleMap[selectedPrayerForSoundModal] ?: PrayerScheduleItem(selectedPrayerForSoundModal)
+                                        prayerScheduleMap = prayerScheduleMap + (selectedPrayerForSoundModal to cur.copy(duaSoundId = audio.id))
+                                    }
+                                    val curMins = prayerScheduleMap[selectedPrayerForSoundModal]?.preMinutes ?: 5
+                                    onUpdatePrePrayerSettings(true, curMins, audio.id)
+                                    showDuaSoundPicker = false
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) GoldAccent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface
+                                ),
+                                border = if (isSelected) BorderStroke(1.5.dp, GoldAccent) else BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = {
+                                                if (applyDuaToAll) {
+                                                    prayerScheduleMap = prayerScheduleMap.mapValues { (_, item) ->
+                                                        item.copy(duaSoundId = audio.id)
+                                                    }
+                                                } else {
+                                                    val cur = prayerScheduleMap[selectedPrayerForSoundModal] ?: PrayerScheduleItem(selectedPrayerForSoundModal)
+                                                    prayerScheduleMap = prayerScheduleMap + (selectedPrayerForSoundModal to cur.copy(duaSoundId = audio.id))
+                                                }
+                                                val curMins = prayerScheduleMap[selectedPrayerForSoundModal]?.preMinutes ?: 5
+                                                onUpdatePrePrayerSettings(true, curMins, audio.id)
+                                                showDuaSoundPicker = false
+                                            },
+                                            colors = RadioButtonDefaults.colors(selectedColor = GoldAccent)
+                                        )
+                                        Column {
+                                            Text(text = audio.nameAr, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(text = audio.descriptionAr, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    IconButton(onClick = { onTestAudio(audio.audioUrl, audio.nameAr) }) {
+                                        Icon(Icons.Filled.PlayArrow, contentDescription = "استماع", tint = GoldAccent)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { applyDuaToAll = !applyDuaToAll }
+                            .padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(
+                            checked = applyDuaToAll,
+                            onCheckedChange = { applyDuaToAll = it },
+                            colors = CheckboxDefaults.colors(checkedColor = GoldAccent)
+                        )
+                        Text(
+                            text = "تطبيق هذا الصوت على جميع الصلوات الخمس",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDuaSoundPicker = false }) {
+                    Text("إغلاق")
+                }
+            }
+        )
+    }
+
+    // Modal: Choose sound for Iqama
+    if (showIqamaSoundPicker) {
+        var applyIqamaToAll by remember { mutableStateOf(false) }
+        val currentSoundId = prayerScheduleMap[selectedPrayerForSoundModal]?.iqamaSoundId ?: "iqama_takbeer"
+        val availableIqamaAudios = adhanAudiosList.filter {
+            it.category == "iqama" || it.category == "reminder" || it.category == "adhan"
+        }.ifEmpty { adhanAudiosList }
+
+        AlertDialog(
+            onDismissRequest = { showIqamaSoundPicker = false },
+            title = {
+                Column {
+                    Text(
+                        text = "اختر صوت الإقامة لصلاة $selectedPrayerForSoundModal",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "يمكنك الاستماع للتسجيل وتعيينه لصوت الإقامة بعد الأذان",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 340.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(availableIqamaAudios) { audio ->
+                            val isSelected = audio.id == currentSoundId
+                            Card(
+                                onClick = {
+                                    if (applyIqamaToAll) {
+                                        prayerScheduleMap = prayerScheduleMap.mapValues { (_, item) ->
+                                            item.copy(iqamaSoundId = audio.id)
+                                        }
+                                    } else {
+                                        val cur = prayerScheduleMap[selectedPrayerForSoundModal] ?: PrayerScheduleItem(selectedPrayerForSoundModal)
+                                        prayerScheduleMap = prayerScheduleMap + (selectedPrayerForSoundModal to cur.copy(iqamaSoundId = audio.id))
+                                    }
+                                    val curMins = prayerScheduleMap[selectedPrayerForSoundModal]?.iqamaMinutes ?: 15
+                                    onUpdateIqamaSettings(true, curMins, audio.id)
+                                    showIqamaSoundPicker = false
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                                ),
+                                border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = {
+                                                if (applyIqamaToAll) {
+                                                    prayerScheduleMap = prayerScheduleMap.mapValues { (_, item) ->
+                                                        item.copy(iqamaSoundId = audio.id)
+                                                    }
+                                                } else {
+                                                    val cur = prayerScheduleMap[selectedPrayerForSoundModal] ?: PrayerScheduleItem(selectedPrayerForSoundModal)
+                                                    prayerScheduleMap = prayerScheduleMap + (selectedPrayerForSoundModal to cur.copy(iqamaSoundId = audio.id))
+                                                }
+                                                val curMins = prayerScheduleMap[selectedPrayerForSoundModal]?.iqamaMinutes ?: 15
+                                                onUpdateIqamaSettings(true, curMins, audio.id)
+                                                showIqamaSoundPicker = false
+                                            },
+                                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                        )
+                                        Column {
+                                            Text(text = audio.nameAr, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(text = audio.descriptionAr, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    IconButton(onClick = { onTestAudio(audio.audioUrl, audio.nameAr) }) {
+                                        Icon(Icons.Filled.VolumeUp, contentDescription = "استماع", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { applyIqamaToAll = !applyIqamaToAll }
+                            .padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(
+                            checked = applyIqamaToAll,
+                            onCheckedChange = { applyIqamaToAll = it },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                        )
+                        Text(
+                            text = "تطبيق هذا الصوت على جميع الصلوات الخمس",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showIqamaSoundPicker = false }) {
+                    Text("إغلاق")
+                }
+            }
+        )
+    }
+
+    // ==========================================
+    // TEXT EDITING DIALOGS (Dua, Salawat, Athkar)
+    // ==========================================
+
+    // 1. Dua Text Dialog
+    if (showDuaTextDialog) {
+        AlertDialog(
+            onDismissRequest = { showDuaTextDialog = false },
+            title = {
+                Text(
+                    text = "تعديل نص دعاء وتنبيه قبل الصلاة ($currentPrayerForDuaText)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = GoldAccent
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "اكتب النص أو الدعاء الذي تود ظهوره في إشعار التذكير قبل الصلاة:",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = customDuaInput,
+                        onValueChange = { customDuaInput = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        placeholder = { Text("مثال: اللهم إني أسألك الهدى والتقى والعفاف والغنى") },
+                        maxLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (currentPrayerForDuaText == "عام") {
+                            onUpdatePrePrayerDuaCustomText(customDuaInput)
+                        } else {
+                            val cur = prayerScheduleMap[currentPrayerForDuaText] ?: PrayerScheduleItem(currentPrayerForDuaText)
+                            prayerScheduleMap = prayerScheduleMap + (currentPrayerForDuaText to cur.copy(customDuaText = customDuaInput))
+                        }
+                        showDuaTextDialog = false
+                    }
+                ) {
+                    Text("حفظ النص")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDuaTextDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // 2. Salawat Text Dialog
+    if (showSalawatTextDialog) {
+        AlertDialog(
+            onDismissRequest = { showSalawatTextDialog = false },
+            title = {
+                Text(
+                    text = "تعديل نص التذكير بالصلاة على النبي ﷺ",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = EmeraldLight
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "اكتب نص الصلاة على النبي ﷺ المفضل لديك للتنبيه الدوري:",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = salawatTextInput,
+                        onValueChange = { salawatTextInput = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        placeholder = { Text("اللهم صل وسلم على نبينا محمد ﷺ") },
+                        maxLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateSalawatCustomText(salawatTextInput)
+                        showSalawatTextDialog = false
+                    }
+                ) {
+                    Text("حفظ النص")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSalawatTextDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // 3. Morning Athkar Text Dialog
+    if (showMorningTextDialog) {
+        AlertDialog(
+            onDismissRequest = { showMorningTextDialog = false },
+            title = {
+                Text(
+                    text = "تعديل نص أذكار الصباح",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = GoldAccent
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "اكتب نص الذكر أو التنبيه لأذكار الصباح:",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = morningTextInput,
+                        onValueChange = { morningTextInput = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        placeholder = { Text("أصبحنا وأصبح الملك لله والحمد لله...") },
+                        maxLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateMorningAthkarCustomText(morningTextInput)
+                        showMorningTextDialog = false
+                    }
+                ) {
+                    Text("حفظ النص")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMorningTextDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // 4. Evening Athkar Text Dialog
+    if (showEveningTextDialog) {
+        AlertDialog(
+            onDismissRequest = { showEveningTextDialog = false },
+            title = {
+                Text(
+                    text = "تعديل نص أذكار المساء",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "اكتب نص الذكر أو التنبيه لأذكار المساء:",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = eveningTextInput,
+                        onValueChange = { eveningTextInput = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        placeholder = { Text("أمسينا وأمسى الملك لله والحمد لله...") },
+                        maxLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateEveningAthkarCustomText(eveningTextInput)
+                        showEveningTextDialog = false
+                    }
+                ) {
+                    Text("حفظ النص")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEveningTextDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // 5. Post Prayer Athkar Text Dialog
+    if (showPostPrayerTextDialog) {
+        AlertDialog(
+            onDismissRequest = { showPostPrayerTextDialog = false },
+            title = {
+                Text(
+                    text = "تعديل نص أذكار ما بعد الصلاة ($currentPrayerForDuaText)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = EmeraldLight
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "اكتب نص الأذكار التي تود ظهورها بعد الصلاة (بالنص صامت بدون صوت):",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = postPrayerTextInput,
+                        onValueChange = { postPrayerTextInput = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        placeholder = { Text("أستغفر الله (٣ مرات)، اللهم أنت السلام ومنك السلام...") },
+                        maxLines = 4
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (currentPrayerForDuaText != "عام") {
+                            val cur = prayerScheduleMap[currentPrayerForDuaText] ?: PrayerScheduleItem(currentPrayerForDuaText)
+                            prayerScheduleMap = prayerScheduleMap + (currentPrayerForDuaText to cur.copy(customPostAthkarText = postPrayerTextInput))
+                        }
+                        onUpdatePostPrayerCustomText(postPrayerTextInput)
+                        showPostPrayerTextDialog = false
+                    }
+                ) {
+                    Text("حفظ النص")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPostPrayerTextDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    // Dialog for picking prayer-specific adhan sound
+    if (showPrayerSoundDialog) {
+        val prayerArName = when (selectedPrayerForSoundDialog) {
+            PrayerType.FAJR -> "صلاة الفجر"
+            PrayerType.DHUHR -> "صلاة الظهر"
+            PrayerType.ASR -> "صلاة العصر"
+            PrayerType.MAGHRIB -> "صلاة المغرب"
+            PrayerType.ISHA -> "صلاة العشاء"
+            else -> "الصلاة"
+        }
+        val currentSelectedSoundId = when (selectedPrayerForSoundDialog) {
+            PrayerType.FAJR -> fajrAdhanSound
+            PrayerType.DHUHR -> dhuhrAdhanSound
+            PrayerType.ASR -> asrAdhanSound
+            PrayerType.MAGHRIB -> maghribAdhanSound
+            PrayerType.ISHA -> ishaAdhanSound
+            else -> selectedMuadhinId
+        }
+
+        AlertDialog(
+            onDismissRequest = { showPrayerSoundDialog = false },
+            title = {
+                Text(
+                    text = "اختيار صوت أذان $prayerArName",
+                    fontWeight = FontWeight.Bold,
+                    color = GoldAccent
+                )
+            },
+            text = {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
+                    val availableAudios = adhanAudiosList.filter { it.category == "adhan" || it.category == "friday" }
+                    items(availableAudios, key = { it.id }) { audio ->
+                        val isSelected = currentSelectedSoundId == audio.id
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable {
+                                    onUpdatePrayerAdhanSound(selectedPrayerForSoundDialog, audio.id)
+                                    showPrayerSoundDialog = false
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) GoldAccent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface
+                            ),
+                            border = if (isSelected) BorderStroke(1.dp, GoldAccent) else null
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    RadioButton(
+                                        selected = isSelected,
+                                        onClick = {
+                                            onUpdatePrayerAdhanSound(selectedPrayerForSoundDialog, audio.id)
+                                            showPrayerSoundDialog = false
+                                        }
+                                    )
+                                    Column {
+                                        Text(text = audio.nameAr, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                        Text(text = audio.descriptionAr, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                IconButton(onClick = { onTestAudio(audio.audioUrl, audio.nameAr) }) {
+                                    Icon(Icons.Filled.VolumeUp, contentDescription = "استماع", tint = GoldAccent)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrayerSoundDialog = false }) {
+                    Text("إغلاق")
+                }
+            }
+        )
+    }
 }
+}
+
+data class PrayerScheduleItem(
+    val prayerName: String,
+    val preMinutes: Int = 5,
+    val preEnabled: Boolean = true,
+    val iqamaMinutes: Int = 15,
+    val iqamaEnabled: Boolean = true,
+    val postAthkarMinutes: Int = 5,
+    val postAthkarEnabled: Boolean = true,
+    val duaSoundId: String = "pre_prayer_ayah",
+    val iqamaSoundId: String = "iqama_takbeer",
+    val volume: Float = 0.85f,
+    val selectedDays: Set<Int> = setOf(1, 2, 3, 4, 5, 6, 7),
+    val customDuaText: String = "اللهم إني أسألك الهدى والتقى والعفاف والغنى",
+    val customPostAthkarText: String = "أستغفر الله (٣ مرات)، اللهم أنت السلام ومنك السلام، تباركت يا ذا الجلال والإكرام"
+)

@@ -73,6 +73,8 @@ fun SettingsScreen(
     onSendCenterNotification: () -> Unit = {},
     onDetectLocationGps: () -> Unit = {},
     isGpsDetecting: Boolean = false,
+    autoGpsLocation: Boolean = true,
+    onToggleAutoGpsLocation: (Boolean) -> Unit = {},
     initialTab: Int = 0,
     onOpenCitySelector: () -> Unit = {},
     onSaveCityCoords: (Double, Double, String) -> Unit = { _, _, _ -> },
@@ -124,6 +126,7 @@ fun SettingsScreen(
     onUpdatePostPrayerDelayMinutes: (Int) -> Unit = {},
     quickStartEnabled: Boolean = true,
     onUpdateQuickStartEnabled: (Boolean) -> Unit = {},
+    onLogoutAccount: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -132,19 +135,14 @@ fun SettingsScreen(
     }
 
     val context = LocalContext.current
-    var selectedTopTab by remember { mutableStateOf(initialTab) }
+    var selectedTopTab by remember { mutableStateOf(initialTab.coerceIn(0, 3)) }
 
-    // Dialog states for Google Account & Developer unlock
+    // Dialog states for Google Account
     var showGoogleAccountDialog by remember { mutableStateOf(false) }
-    var showDeveloperUnlockDialog by remember { mutableStateOf(false) }
-    var devEmailInput by remember { mutableStateOf("") }
-    var devAnswerInput by remember { mutableStateOf("") }
-    var devUnlockError by remember { mutableStateOf<String?>(null) }
 
     val topTabs = listOf(
         "العامة والطقس والموقع",
         "الحساب والجمعة والتقويم",
-        "قسم الأذان وتذكير الصلاة",
         "قسم تعديل الويدجات",
         "تخصيص الأقسام والخلفيات"
     )
@@ -410,6 +408,34 @@ fun SettingsScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("تعديل يدوي", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "تشغيل الموقع الجغرافي تلقائياً (GPS)",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (autoGpsLocation) "مفعّل: تحديث المواقيت والقبلة تلقائياً عبر GPS عند فتح التطبيق" else "متوقف: استخدام المدينة المحددة يدوياً",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = autoGpsLocation,
+                                onCheckedChange = onToggleAutoGpsLocation
+                            )
                         }
                     }
                 }
@@ -735,12 +761,35 @@ fun SettingsScreen(
                             }
                         }
 
-                        OutlinedButton(
-                            onClick = { showGoogleAccountDialog = true },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text("إدارة الحساب", fontSize = 11.sp)
+                            OutlinedButton(
+                                onClick = { showGoogleAccountDialog = true },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text("إدارة الحساب", fontSize = 11.sp)
+                            }
+                            TextButton(
+                                onClick = onLogoutAccount,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.testTag("settings_logout_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Logout,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "تسجيل الخروج",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }
@@ -820,184 +869,9 @@ fun SettingsScreen(
                 }
             }
 
-            // Post Prayer Athkar Timing Customization (إختياري بالدقائق: 5، 10، 15، إلخ)
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_post_prayer_delay_card"),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(Icons.Filled.Schedule, contentDescription = null, tint = GoldAccent)
-                            Column {
-                                Text(
-                                    text = "تعديل التذكير بأذكار بعد الصلاة (إختياري)",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "اختر الوقت المناسب لتنبيه أذكار ما بعد الصلاة (5 دقائق، 10 دقائق، أو وقت مخصص)",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Quick Chips: 5, 10, 15, 20, 30
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val standardOptions = listOf(5, 10, 15, 20, 30)
-                            standardOptions.forEach { mins ->
-                                val isSelected = postPrayerDelayMinutes == mins
-                                Surface(
-                                    onClick = { onUpdatePostPrayerDelayMinutes(mins) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                    border = if (isSelected) BorderStroke(1.dp, GoldAccent) else null,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    ) {
-                                        Text(
-                                            text = "$mins د",
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "التنبيه ينطلق بعد الصلاة بـ: $postPrayerDelayMinutes دقيقة",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = GoldAccent
-                            )
-                        }
-
-                        Slider(
-                            value = postPrayerDelayMinutes.toFloat(),
-                            onValueChange = { onUpdatePostPrayerDelayMinutes(it.toInt().coerceIn(1, 60)) },
-                            valueRange = 1f..60f,
-                            steps = 59,
-                            colors = SliderDefaults.colors(
-                                thumbColor = GoldAccent,
-                                activeTrackColor = GoldAccent
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Athkar presses / clicks selector (5 ضغط بعد الصلاة أو 10 إلخ)
-                        var athkarClicks by remember { mutableStateOf(5) }
-                        Text(
-                            text = "عدد الضغطات والتسبيحات بعد الصلاة (اختياري): $athkarClicks ضغطات",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            listOf(5, 10, 33, 100).forEach { count ->
-                                val isSelectedClick = athkarClicks == count
-                                Surface(
-                                    onClick = { athkarClicks = count },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelectedClick) EmeraldLight.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant,
-                                    border = BorderStroke(1.dp, if (isSelectedClick) EmeraldLight else Color.Transparent),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.padding(vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = "$count ضغط",
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelectedClick) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelectedClick) EmeraldLight else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Quick App Start Card (دخول إلى تطبيق سريع)
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_quick_start_card"),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Filled.FlashOn, contentDescription = null, tint = GoldAccent)
-                            Column {
-                                Text(
-                                    text = "دخول سريع للتطبيق (Quick Start)",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "تشغيل التطبيق فوراً بدون شاشات انتظار والوصول المباشر للمواقيت",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Switch(
-                            checked = quickStartEnabled,
-                            onCheckedChange = onUpdateQuickStartEnabled
-                        )
-                    }
-                }
-            }
-
-            // Creator Studio (Strictly hidden unless unlocked with bnb40195@sat and صلاتي)
-            item {
-                if (isDeveloperUnlocked) {
+            // Creator Studio (Strictly visible ONLY when signed in with bnb40195@sat and صلاتي)
+            if (isDeveloperUnlocked) {
+                item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1049,61 +923,6 @@ fun SettingsScreen(
                                 }
                             }
                         }
-                    }
-                } else {
-                    // Secret discreet unlock card: Clicking it opens the strict unlock dialog
-                    Surface(
-                        onClick = {
-                            devEmailInput = ""
-                            devAnswerInput = ""
-                            devUnlockError = null
-                            showDeveloperUnlockDialog = true
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Filled.Key, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                                Text(
-                                    text = "تفعيل وضع صانع التطبيق (أمان المطور)",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
-            }
-
-            // About Card
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(text = "صلاتي • Salati", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "يعمل 100% بدون إنترنت مع تجديد تلقائي للمواقيت والطقس عند توفر شبكة الهاتف أو الواي فاي أو الـ VPN",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
                     }
                 }
             }
@@ -1352,181 +1171,9 @@ fun SettingsScreen(
         }
 
         // ==========================================
-        // TAB 2: قسم الأذان وتذكير الصلاة
+        // TAB 2: قسم تعديل الويدجات (Widget Customization & Unlimited Widgets)
         // ==========================================
         if (selectedTopTab == 2) {
-            // Header Card: Direct Shortcut to Unified Adhan and Prayer Reminder
-            item {
-                Surface(
-                    onClick = onOpenPrayerAdjustments,
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.fillMaxWidth().testTag("open_prayer_reminders_from_settings")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(Icons.Filled.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Column {
-                            Text(text = "قسم الأذان وتذكير الصلاة والمواقيت", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text(text = "تنبيهات ما قبل الصلاة، تذكير الإقامة، وأذكار ما بعد الصلاة والأذان", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            // Pre-Prayer Reminder (إن الصلاة كانت على المؤمنين كتاباً موقوتاً)
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "تذكير قبل الصلاة (إن الصلاة كانت على المؤمنين)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text(
-                                    text = "تنبيه صوتي بالآية الكريمة: \"إن الصلاة كانت على المؤمنين كتاباً موقوتاً - صدق الله العظيم\"",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = prePrayerBigMessage,
-                                onCheckedChange = { onUpdatePrePrayerSettings(it, prePrayerMinutesBefore) }
-                            )
-                        }
-
-                        if (prePrayerBigMessage) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(text = "التنبيه قبل الأذان بـ:", fontSize = 12.sp)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                                listOf(5, 10, 15, 20).forEach { mins ->
-                                    val isSelected = prePrayerMinutesBefore == mins
-                                    Surface(
-                                        onClick = { onUpdatePrePrayerSettings(true, mins) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
-                                        Text(
-                                            text = "$mins دقائق",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Salawat on the Prophet ﷺ (Every X Minutes)
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "تذكير الصلاة على النبي ﷺ دورياً", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(text = "تنبيه صوتي عذب بالصلاة والسلام على رسول الله ﷺ في فترات منتظمة", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(text = "تكرار التذكير كل:", fontSize = 12.sp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                            listOf(
-                                1 to "دقيقة",
-                                5 to "5 دقائق",
-                                10 to "10 د",
-                                15 to "15 د",
-                                30 to "30 د",
-                                60 to "ساعة"
-                            ).forEach { (mins, label) ->
-                                val isSelected = salawatIntervalMinutes == mins
-                                Surface(
-                                    onClick = { onUpdateSalawatInterval(mins) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Divider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-
-                        Text(text = "صوت التنبيه بالصلاة على النبي ﷺ:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        val salawatVoices = listOf(
-                            Triple("tts_calm", "صوت هادئ خاشع", "اللَّهُمَّ صَلِّ وَسَلِّمْ وَبَارِكْ عَلَى نَبِيِّنَا مُحَمَّدٍ ﷺ"),
-                            Triple("tts_reverent", "صوت وقور مبجل مع الآل والصحب", "اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَصَحْبِهِ أَجْمَعِينَ"),
-                            Triple("tts_ibrahimi", "الصيغة الإبراهيمية المباركة", "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَى إِبْرَاهِيمَ"),
-                            Triple("voice_haram_makkah", "صوت الحرم المكي الشريف", "الصَّلَاةُ وَالسَّلَامُ عَلَيْكَ يَا رَسُولَ اللهِ بنبرة الحرم المكي"),
-                            Triple("voice_madinah_nabawi", "صوت المسجد النبوي الشريف", "يَا طَيِّبَةَ الْخَيْرِ، صَلَوَاتُ رَبِّي وَسَلَامُهُ عَلَى نَبِيِّ الرَّحْمَةِ"),
-                            Triple("chime_gentle", "نغمة أثيرية إسلامية هادئة", "رنين نقي متناغم ومريح للقلب"),
-                            Triple("chime_madinah", "رنين مقامات روحانية", "نغمات وترية مستوحاة من سكينة المدينة المنورة")
-                        )
-
-                        salawatVoices.forEach { (key, title, desc) ->
-                            val isSelected = salawatSoundType == key
-                            Surface(
-                                onClick = { onUpdateSalawatSoundType(key) },
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 3.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        RadioButton(
-                                            selected = isSelected,
-                                            onClick = { onUpdateSalawatSoundType(key) },
-                                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
-                                        )
-                                        Column {
-                                            Text(text = title, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                                            Text(text = desc, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==========================================
-        // TAB 3: قسم تعديل الويدجات (Widget Customization & Unlimited Widgets)
-        // ==========================================
-        if (selectedTopTab == 3) {
             // Header card
             item {
                 Card(
@@ -1720,9 +1367,9 @@ fun SettingsScreen(
         }
 
         // ==========================================
-        // TAB 4: تخصيص الأقسام والخلفيات
+        // TAB 3: تخصيص الأقسام والخلفيات
         // ==========================================
-        if (selectedTopTab == 4) {
+        if (selectedTopTab == 3) {
             // Shortcut: Widgets Studio
             item {
                 Surface(
@@ -1811,22 +1458,10 @@ fun SettingsScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = "أقسام التطبيق وتفعيلها", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = if (isDeveloperUnlocked) "إدارة وتعديل الأقسام متوفرة في صانع التطبيق" else "التحكم في ظهور الأقسام وتفعيلها",
+                                    text = "التحكم في ظهور الأقسام وتفعيلها",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            }
-                            if (isDeveloperUnlocked) {
-                                Button(
-                                    onClick = onOpenCreatorStudio,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GoldAccent),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(Icons.Filled.Construction, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("صانع التطبيق", fontSize = 12.sp, color = Color.Black, fontWeight = FontWeight.Bold)
-                                }
                             }
                         }
                     }
@@ -2356,111 +1991,7 @@ fun SettingsScreen(
         )
     }
 
-    // 8. Strict Developer Unlock Dialog (bnb40195@sat + صلاتي)
-    if (showDeveloperUnlockDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeveloperUnlockDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Filled.AdminPanelSettings,
-                    contentDescription = null,
-                    tint = GoldAccent,
-                    modifier = Modifier.size(36.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = "التحقق من هوية صانع التطبيق",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "قسم صانع التطبيق محمي بالكامل ومخفي. للوصول، يرجى إدخال البريد الإلكتروني المعتمد والإجابة الصحيحة عن السؤال الأمني:",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 17.sp
-                    )
-
-                    OutlinedTextField(
-                        value = devEmailInput,
-                        onValueChange = {
-                            devEmailInput = it
-                            devUnlockError = null
-                        },
-                        label = { Text("البريد الإلكتروني المعتمد") },
-                        placeholder = { Text("أدخل البريد الإلكتروني") },
-                        singleLine = true,
-                        leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null, tint = GoldAccent) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("dev_unlock_email_field")
-                    )
-
-                    OutlinedTextField(
-                        value = devAnswerInput,
-                        onValueChange = {
-                            devAnswerInput = it
-                            devUnlockError = null
-                        },
-                        label = { Text("السؤال الأمني: ما هو اسم التطبيق؟") },
-                        placeholder = { Text("أدخل الجواب الأمني") },
-                        singleLine = true,
-                        leadingIcon = { Icon(Icons.Filled.Key, contentDescription = null, tint = GoldAccent) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("dev_unlock_answer_field")
-                    )
-
-                    if (devUnlockError != null) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = devUnlockError ?: "",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val trimmedEmail = devEmailInput.trim()
-                        val trimmedAnswer = devAnswerInput.trim()
-                        val success = onUnlockDeveloper?.invoke(trimmedEmail, trimmedAnswer) ?: false
-                        if (success) {
-                            showDeveloperUnlockDialog = false
-                            Toast.makeText(context, "تم التحقق بنجاح! تم تفعيل قسم صانع التطبيق.", Toast.LENGTH_LONG).show()
-                        } else {
-                            devUnlockError = "البيانات المدخلة غير صحيحة! لا يمكن تفعيل قسم صانع التطبيق."
-                        }
-                    },
-                    modifier = Modifier.testTag("dev_unlock_confirm_button")
-                ) {
-                    Text("تحقق وتفعيل")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeveloperUnlockDialog = false }) {
-                    Text("إلغاء")
-                }
-            }
-        )
-    }
-
-    // 9. Google Account Management Dialog
+    // 8. Google Account Management Dialog
     if (showGoogleAccountDialog) {
         var emailInput by remember { mutableStateOf(if (isDeveloperUnlocked) googleAccountEmail else "") }
 

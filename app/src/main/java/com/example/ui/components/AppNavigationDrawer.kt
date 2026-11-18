@@ -43,8 +43,6 @@ enum class DrawerDestination {
     INVENTIONS_AND_BATTLES,
     PROPHETS_AND_TAWBAH,
     QUESTIONS_RELIGIOUS_AND_GENERAL,
-    ON_THIS_DAY,
-    CAPITALS,
     ATHKAR_DUAS
 }
 
@@ -76,13 +74,13 @@ fun AppNavigationDrawer(
             DrawerItemDef(DrawerDestination.ADHAN_AND_REMINDER, "قسم الأذان والمواقيت", Icons.Filled.NotificationsActive, "النداء"),
             DrawerItemDef(DrawerDestination.PRAYER_REMINDER, "قسم تنبيه وتذكير", Icons.Filled.Alarm, "منبهات"),
             DrawerItemDef(DrawerDestination.ATHKAR_DUAS, "الأذكار والأدعية الشاملة (جهتان وعداد)", Icons.Filled.AutoAwesome, "شامل"),
-            DrawerItemDef(DrawerDestination.QURAN_AND_SUNNAH, "القرآن الكريم والسنة النبوية", Icons.Filled.MenuBook, "المصحف"),
+            DrawerItemDef(DrawerDestination.QURAN_AND_SUNNAH, "القرآن والسنة", Icons.Filled.MenuBook, "المصحف"),
             DrawerItemDef(DrawerDestination.CALENDAR, "التقويم الهجري والميلادي", Icons.Filled.CalendarMonth),
             DrawerItemDef(DrawerDestination.QIBLA, "القبلة", Icons.Filled.Explore),
             DrawerItemDef(DrawerDestination.SETTINGS, "الإعدادات الشاملة", Icons.Filled.Settings)
         )
         if (isDeveloperUnlocked) {
-            list.add(DrawerItemDef(DrawerDestination.CREATOR_STUDIO, "قسم صانع التطبيق", Icons.Filled.Build, "استوديو"))
+            list.add(DrawerItemDef(DrawerDestination.CREATOR_STUDIO, "قسم صانع التطبيق", Icons.Filled.AdminPanelSettings, "مطور"))
         }
         list
     }
@@ -100,9 +98,7 @@ fun AppNavigationDrawer(
                 "أسئلة دينية وعامة",
                 Icons.Filled.HelpOutline,
                 "فتاوى"
-            ),
-            DrawerItemDef(DrawerDestination.ON_THIS_DAY, "حدث في مثل هذا اليوم", Icons.Filled.Event),
-            DrawerItemDef(DrawerDestination.CAPITALS, "عواصم 57 دولة إسلامية", Icons.Filled.Public, "أطلس")
+            )
         )
     }
 

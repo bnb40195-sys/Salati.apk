@@ -126,22 +126,6 @@ fun AlertsAndRemindersScreen(
         )
     }
 
-    // 5 Prayers alert states (الفجر، الظهر، العصر، المغرب، العشاء)
-    var prayerAlerts by remember {
-        mutableStateOf(
-            mapOf(
-                "الفجر" to PrayerAlertItemState("الفجر", duaEnabled = true, duaMinutes = 5, adhanEnabled = true, iqamaEnabled = false, iqamaMinutes = 5, athkarEnabled = true, athkarMinutes = postPrayerDelayMinutes),
-                "الظهر" to PrayerAlertItemState("الظهر", duaEnabled = false, duaMinutes = 5, adhanEnabled = true, iqamaEnabled = false, iqamaMinutes = 5, athkarEnabled = true, athkarMinutes = postPrayerDelayMinutes),
-                "العصر" to PrayerAlertItemState("العصر", duaEnabled = false, duaMinutes = 5, adhanEnabled = true, iqamaEnabled = false, iqamaMinutes = 5, athkarEnabled = true, athkarMinutes = postPrayerDelayMinutes),
-                "المغرب" to PrayerAlertItemState("المغرب", duaEnabled = false, duaMinutes = 5, adhanEnabled = true, iqamaEnabled = false, iqamaMinutes = 5, athkarEnabled = true, athkarMinutes = postPrayerDelayMinutes),
-                "العشاء" to PrayerAlertItemState("العشاء", duaEnabled = false, duaMinutes = 5, adhanEnabled = true, iqamaEnabled = false, iqamaMinutes = 5, athkarEnabled = true, athkarMinutes = postPrayerDelayMinutes)
-            )
-        )
-    }
-
-    // Active prayer detail dialog
-    var activePrayerDetail by remember { mutableStateOf<Pair<String, AlertDetailType>?>(null) }
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -231,7 +215,7 @@ fun AlertsAndRemindersScreen(
                 }
             }
 
-            // Tabs Selector matching the app flow
+            // Tabs Selector matching the app flow (2 tabs: الصيام والسحور، والمناسبات والأعياد)
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
                 edgePadding = 12.dp,
@@ -250,13 +234,7 @@ fun AlertsAndRemindersScreen(
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("تذكير الصلوات الخمس", fontSize = 12.sp, fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
-                    icon = { Icon(Icons.Filled.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    text = { Text("المناسبات والأعياد", fontSize = 12.sp, fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
+                    text = { Text("المناسبات والأعياد وصيام التطوع", fontSize = 12.sp, fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
                     icon = { Icon(Icons.Filled.Festival, contentDescription = null, modifier = Modifier.size(16.dp)) }
                 )
             }
@@ -373,48 +351,7 @@ fun AlertsAndRemindersScreen(
                 }
 
                 1 -> {
-                    // TAB 1: 5 Prayers Alarm rows matching Images with PrayerReminderRowCard
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 14.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            Text(
-                                text = "تنبيهات وتذكيرات الصلوات الخمس",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = GoldAccent,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        }
-
-                        items(listOf("الفجر", "الظهر", "العصر", "المغرب", "العشاء")) { prayerName ->
-                            val pState = prayerAlerts[prayerName] ?: PrayerAlertItemState(prayerName)
-
-                            PrayerReminderRowCard(
-                                prayerName = prayerName,
-                                duaText = if (pState.duaEnabled) "الدعاء ${pState.duaMinutes} دقيقة قبل" else "الدعاء قبل الأذان\n[موقوف]",
-                                isDuaActive = pState.duaEnabled,
-                                onDuaClick = { activePrayerDetail = prayerName to AlertDetailType.DUA_BEFORE },
-                                adhanText = if (pState.adhanEnabled) "الأذان\n[مفعل]" else "الأذان\n[موقوف]",
-                                isAdhanActive = pState.adhanEnabled,
-                                onAdhanClick = { activePrayerDetail = prayerName to AlertDetailType.ADHAN },
-                                iqamaText = if (pState.iqamaEnabled) "الإقامة ${pState.iqamaMinutes} دقيقة بعد" else "الإقامة بعد الأذان\n[موقوف]",
-                                isIqamaActive = pState.iqamaEnabled,
-                                onIqamaClick = { activePrayerDetail = prayerName to AlertDetailType.IQAMA_AFTER },
-                                athkarText = if (pState.athkarEnabled) "تذكير بأذكار بعد الصلاة\n[بعد ${pState.athkarMinutes} دقيقة]" else "تذكير بأذكار بعد الصلاة\n[موقوف]",
-                                isAthkarActive = pState.athkarEnabled,
-                                onAthkarClick = { activePrayerDetail = prayerName to AlertDetailType.ATHKAR_AFTER }
-                            )
-                        }
-                    }
-                }
-
-                2 -> {
-                    // TAB 2: Special Islamic Fasting & Eid Reminders (الأيام البيض، عيد الفطر، عيد الأضحى، عرفة، عاشوراء)
+                    // TAB 1: Special Islamic Fasting & Eid Reminders (الأيام البيض، عيد الفطر، عيد الأضحى، عرفة، عاشوراء)
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -606,108 +543,7 @@ fun AlertsAndRemindersScreen(
             )
         }
 
-        // 4. DIALOG: Prayer alert detail dialog (Dua, Adhan, Iqama, Athkar)
-        if (activePrayerDetail != null) {
-            val (targetName, alertType) = activePrayerDetail!!
-            val currentState = prayerAlerts[targetName] ?: PrayerAlertItemState(targetName)
-
-            when (alertType) {
-                AlertDetailType.DUA_BEFORE -> {
-                    DuaBeforeDetailDialog(
-                        prayerName = targetName,
-                        minutesBefore = currentState.duaMinutes,
-                        isEnabled = currentState.duaEnabled,
-                        selectedDays = currentState.selectedDays,
-                        volume = currentState.volume,
-                        soundName = currentState.soundName,
-                        onDismiss = { activePrayerDetail = null },
-                        onSave = { mins, enabled, days, vol, snd ->
-                            prayerAlerts = prayerAlerts + (targetName to currentState.copy(
-                                duaMinutes = mins,
-                                duaEnabled = enabled,
-                                selectedDays = days,
-                                volume = vol,
-                                soundName = snd
-                            ))
-                            activePrayerDetail = null
-                        },
-                        onPlaySound = { onPlayTestSound("dua") }
-                    )
-                }
-
-                AlertDetailType.ADHAN -> {
-                    AdhanDetailDialog(
-                        prayerName = targetName,
-                        isEnabled = currentState.adhanEnabled,
-                        selectedDays = currentState.selectedDays,
-                        volume = currentState.volume,
-                        soundName = currentState.soundName,
-                        onDismiss = { activePrayerDetail = null },
-                        onSave = { enabled, days, vol, snd ->
-                            prayerAlerts = prayerAlerts + (targetName to currentState.copy(
-                                adhanEnabled = enabled,
-                                selectedDays = days,
-                                volume = vol,
-                                soundName = snd
-                            ))
-                            activePrayerDetail = null
-                        },
-                        onPlaySound = { onPlayTestSound("adhan") }
-                    )
-                }
-
-                AlertDetailType.IQAMA_AFTER -> {
-                    IqamaDetailDialog(
-                        prayerName = targetName,
-                        minutesAfter = currentState.iqamaMinutes,
-                        isEnabled = currentState.iqamaEnabled,
-                        selectedDays = currentState.selectedDays,
-                        volume = currentState.volume,
-                        soundName = currentState.soundName,
-                        onDismiss = { activePrayerDetail = null },
-                        onSave = { mins, enabled, days, vol, snd ->
-                            prayerAlerts = prayerAlerts + (targetName to currentState.copy(
-                                iqamaMinutes = mins,
-                                iqamaEnabled = enabled,
-                                selectedDays = days,
-                                volume = vol,
-                                soundName = snd
-                            ))
-                            activePrayerDetail = null
-                        },
-                        onPlaySound = { onPlayTestSound("iqama") }
-                    )
-                }
-
-                AlertDetailType.ATHKAR_AFTER -> {
-                    AthkarAfterDetailDialog(
-                        prayerName = targetName,
-                        minutesAfter = currentState.athkarMinutes,
-                        isEnabled = currentState.athkarEnabled,
-                        selectedDays = currentState.selectedDays,
-                        volume = currentState.volume,
-                        soundName = currentState.soundName,
-                        onDismiss = { activePrayerDetail = null },
-                        onSave = { mins, enabled, days, vol, snd ->
-                            onUpdatePostPrayerDelay(mins)
-                            prayerAlerts = prayerAlerts + (targetName to currentState.copy(
-                                athkarMinutes = mins,
-                                athkarEnabled = enabled,
-                                selectedDays = days,
-                                volume = vol,
-                                soundName = snd
-                            ))
-                            activePrayerDetail = null
-                        },
-                        onPlaySound = { onPlayTestSound("athkar") }
-                    )
-                }
-
-                else -> {}
-            }
-        }
-
-        // 5. DIALOG: Big Complete Post-Prayer Athkar Message Dialog (رسالة كبيرة في أذكار الصلاة كاملة بدون صوت)
+        // 4. DIALOG: Big Complete Post-Prayer Athkar Message Dialog (رسالة كبيرة في أذكار الصلاة كاملة بدون صوت)
         if (showBigAthkarDialog) {
             FullPostPrayerAthkarBigMessageDialog(
                 onDismiss = { showBigAthkarDialog = false }

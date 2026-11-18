@@ -1,29 +1,20 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.data.local.QuranRiwayahsDataset
 import com.example.data.models.Ayah
 import com.example.data.models.Hadith
 import com.example.data.models.Qari
 import com.example.data.models.Surah
 import com.example.data.services.PlaybackState
-import com.example.ui.theme.EmeraldLight
-import com.example.ui.theme.GoldAccent
 
 @Composable
 fun UnifiedQuranSunnahScreen(
@@ -69,217 +60,56 @@ fun UnifiedQuranSunnahScreen(
     onBack: (() -> Unit)? = null,
     initialMainTab: Int = 0,
     initialQuranSubTab: Int = 0,
+    initialSection: QuranHubSection = if (initialMainTab == 1) QuranHubSection.SUNNAH else QuranHubSection.HUB,
     modifier: Modifier = Modifier
 ) {
-    // Top Tab: 0 = Quran, 1 = Sunnah
-    var mainTab by remember { mutableIntStateOf(initialMainTab) }
+    var activeSection by remember { mutableStateOf(initialSection) }
+    var pendingSurahToOpen by remember { mutableStateOf<Surah?>(null) }
 
-    // Inside Quran Tab: 0 = مصحح التلاوة والتصحيح الصوتي بالأحمر, 1 = المصحف الشريف
-    var quranSubTab by remember { mutableIntStateOf(initialQuranSubTab) }
-
-    if (onBack != null) {
-        androidx.activity.compose.BackHandler(onBack = onBack)
+    val currentRiwayah = remember(selectedRiwayahId) {
+        QuranRiwayahsDataset.getRiwayah(selectedRiwayahId)
     }
 
-    Column(
+    // Intercept system back button when inside any sub-section to return to Hub
+    BackHandler(enabled = activeSection != QuranHubSection.HUB) {
+        pendingSurahToOpen = null
+        activeSection = QuranHubSection.HUB
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .testTag("unified_quran_sunnah_screen")
     ) {
-        // Top Bar
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Drawer Button & Back Button
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (onBack != null) {
-                            IconButton(
-                                onClick = onBack,
-                                modifier = Modifier.testTag("back_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowBack,
-                                    contentDescription = "الرجوع",
-                                    tint = GoldAccent
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = onOpenDrawer,
-                            modifier = Modifier
-                                .testTag("unified_open_drawer_button")
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Menu,
-                                contentDescription = "فتح قائمة الأقسام",
-                                tint = GoldAccent,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    // Title
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "القرآن الكريم والسنة النبوية",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GoldAccent,
-                            textAlign = TextAlign.End
-                        )
-                        Text(
-                            text = "يجمع التلاوة المصححة، المصحف الشريف، وتراث السنة النبوية المطهرة",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.End
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Primary Tabs: القرآن الكريم vs السنة النبوية
-                TabRow(
-                    selectedTabIndex = mainTab,
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    contentColor = GoldAccent,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                ) {
-                    Tab(
-                        selected = mainTab == 0,
-                        onClick = { mainTab = 0 },
-                        text = {
-                            Text(
-                                "القرآن الكريم",
-                                fontWeight = if (mainTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
-                        },
-                        icon = {
-                            Icon(Icons.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
-                        }
-                    )
-                    Tab(
-                        selected = mainTab == 1,
-                        onClick = { mainTab = 1 },
-                        text = {
-                            Text(
-                                "السنة النبوية (${hadiths.size})",
-                                fontWeight = if (mainTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
-                        },
-                        icon = {
-                            Icon(Icons.Filled.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp))
-                        }
-                    )
-                }
-
-                // If inside Quran tab, show the two requested sub-tabs:
-                // 1) مصحح التلاوة وتصحيح الأخطاء بالأحمر
-                // 2) المصحف الشريف (الترجمة، الإعراب، التفسير، علامة الحفظ، الرواية)
-                if (mainTab == 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Sub-Tab 0: مصحح التلاوة
-                        Surface(
-                            onClick = { quranSubTab = 0 },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (quranSubTab == 0) EmeraldLight.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-                            border = if (quranSubTab == 0) androidx.compose.foundation.BorderStroke(1.dp, EmeraldLight) else null,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Mic,
-                                    contentDescription = null,
-                                    tint = if (quranSubTab == 0) EmeraldLight else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "مصحح التلاوة والأخطاء",
-                                    fontSize = 11.sp,
-                                    fontWeight = if (quranSubTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (quranSubTab == 0) EmeraldLight else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        // Sub-Tab 1: المصحف الشريف
-                        Surface(
-                            onClick = { quranSubTab = 1 },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (quranSubTab == 1) GoldAccent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-                            border = if (quranSubTab == 1) androidx.compose.foundation.BorderStroke(1.dp, GoldAccent) else null,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.AutoStories,
-                                    contentDescription = null,
-                                    tint = if (quranSubTab == 1) GoldAccent else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "المصحف الشريف",
-                                    fontSize = 11.sp,
-                                    fontWeight = if (quranSubTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (quranSubTab == 1) GoldAccent else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Main Tab Content
-        Box(modifier = Modifier.weight(1f)) {
-            if (mainTab == 0) {
-                if (quranSubTab == 0) {
-                    // 1. مصحح التلاوة والأخطاء بالأحمر
-                    RecitationCorrectorView(
+        Crossfade(
+            targetState = activeSection,
+            label = "quran_hub_section_transition"
+        ) { section ->
+            when (section) {
+                QuranHubSection.HUB -> {
+                    QuranHubScreen(
                         surahs = surahs,
-                        selectedQari = selectedQari,
+                        bookmarkSurahName = bookmarkSurahName,
+                        bookmarkAyahNumber = bookmarkAyahNumber,
+                        hasActiveBookmark = hasActiveBookmark,
+                        currentRiwayahName = currentRiwayah.nameAr,
                         playbackState = playbackState,
-                        onPlayAudio = onPlayAudio,
-                        onStopAudio = onStopAudio,
-                        onLoadAyahs = onLoadAyahs,
+                        onSelectSection = { target ->
+                            pendingSurahToOpen = null
+                            activeSection = target
+                        },
+                        onResumeBookmark = {
+                            pendingSurahToOpen = surahs.find { it.number == bookmarkSurahNumber }
+                            activeSection = QuranHubSection.MUSHAF
+                        },
+                        onOpenDrawer = onOpenDrawer,
+                        onBack = onBack,
                         modifier = Modifier.fillMaxSize()
                     )
-                } else {
-                    // 2. المصحف الشريف (التراجم، الإعراب، التفسير، الروايات، علامة الحفظ)
+                }
+
+                QuranHubSection.MUSHAF -> {
                     QuranScreen(
                         surahs = surahs,
                         qaris = qaris,
@@ -307,19 +137,96 @@ fun UnifiedQuranSunnahScreen(
                         onToggleTranslationVisibility = onToggleTranslationVisibility,
                         savedFontSize = savedFontSize,
                         onUpdateFontSize = onUpdateFontSize,
+                        onBackToHub = {
+                            pendingSurahToOpen = null
+                            activeSection = QuranHubSection.HUB
+                        },
+                        initialReadingSurah = pendingSurahToOpen,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-            } else {
-                // 3. السنة النبوية الشريفة
-                SunnahScreen(
-                    hadiths = hadiths,
-                    onSpeakHadith = onSpeakHadith,
-                    onStopSpeaking = onStopSpeaking,
-                    isSpeaking = isSpeaking,
-                    onBack = { mainTab = 0 },
-                    modifier = Modifier.fillMaxSize()
-                )
+
+                QuranHubSection.RECITATION -> {
+                    QuranRecitationView(
+                        surahs = surahs,
+                        qaris = qaris,
+                        selectedQari = selectedQari,
+                        selectedRiwayahId = selectedRiwayahId,
+                        playbackState = playbackState,
+                        onSelectQari = onSelectQari,
+                        onSelectRiwayah = onSelectRiwayah,
+                        onPlaySurah = onPlaySurah,
+                        onTogglePlayPause = onTogglePlayPause,
+                        onStopAudio = onStopAudio,
+                        onBack = { activeSection = QuranHubSection.HUB },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                QuranHubSection.SEARCH -> {
+                    QuranSearchView(
+                        surahs = surahs,
+                        onOpenSurah = { surah, _ ->
+                            pendingSurahToOpen = surah
+                            activeSection = QuranHubSection.MUSHAF
+                        },
+                        onBack = { activeSection = QuranHubSection.HUB },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                QuranHubSection.IRAB -> {
+                    QuranIrabView(
+                        surahs = surahs,
+                        onLoadAyahs = onLoadAyahs,
+                        onBack = { activeSection = QuranHubSection.HUB },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                QuranHubSection.TAFSIR -> {
+                    QuranTafsirView(
+                        surahs = surahs,
+                        onLoadAyahs = onLoadAyahs,
+                        onBack = { activeSection = QuranHubSection.HUB },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                QuranHubSection.TRANSLATION -> {
+                    QuranTranslationView(
+                        surahs = surahs,
+                        selectedLang = selectedTranslationLang,
+                        onSelectLang = onSelectTranslationLang,
+                        onLoadAyahs = onLoadAyahs,
+                        onBack = { activeSection = QuranHubSection.HUB },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                QuranHubSection.SMART_RECITATION -> {
+                    RecitationCorrectorView(
+                        surahs = surahs,
+                        selectedQari = selectedQari,
+                        playbackState = playbackState,
+                        onPlayAudio = onPlayAudio,
+                        onStopAudio = onStopAudio,
+                        onLoadAyahs = onLoadAyahs,
+                        onBack = { activeSection = QuranHubSection.HUB },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                QuranHubSection.SUNNAH -> {
+                    SunnahScreen(
+                        hadiths = hadiths,
+                        onSpeakHadith = onSpeakHadith,
+                        onStopSpeaking = onStopSpeaking,
+                        isSpeaking = isSpeaking,
+                        onBack = { activeSection = QuranHubSection.HUB },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }

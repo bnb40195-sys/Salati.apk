@@ -93,7 +93,6 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var showPinWidgetDialog by remember { mutableStateOf(false) }
 
     // Current time ticking state
     var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -157,17 +156,17 @@ fun HomeScreen(
                 .fillMaxSize(),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-        // Hero Mosque Banner Header
+        // Hero Holy Kaaba Banner Header
         item {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(240.dp)
             ) {
-                // Background Mosque Artwork
+                // Background Holy Kaaba Artwork
                 Image(
-                    painter = painterResource(id = R.drawable.mosque_banner),
-                    contentDescription = "Mosque Banner",
+                    painter = painterResource(id = R.drawable.img_kaaba_banner),
+                    contentDescription = "الكعبة المشرفة",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -202,14 +201,17 @@ fun HomeScreen(
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f, fill = false)
                         ) {
                             Surface(
                                 onClick = onOpenCitySelector,
                                 shape = RoundedCornerShape(20.dp),
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                                 tonalElevation = 4.dp,
-                                modifier = Modifier.testTag("city_selector_button")
+                                modifier = Modifier
+                                    .widthIn(max = 200.dp)
+                                    .testTag("city_selector_button")
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -218,19 +220,26 @@ fun HomeScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.LocationOn,
-                                        contentDescription = "Location",
+                                        contentDescription = "الموقع",
                                         tint = GoldAccent,
                                         modifier = Modifier.size(15.dp)
                                     )
                                     Text(
-                                        text = selectedCity.nameAr,
+                                        text = if (isGpsDetecting && selectedCity.nameEn != "Current Location") {
+                                            "جاري تحديد الموقع..."
+                                        } else {
+                                            selectedCity.nameAr
+                                        },
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     )
                                     Icon(
                                         imageVector = Icons.Filled.KeyboardArrowDown,
-                                        contentDescription = "Select City",
+                                        contentDescription = "تحديد المدينة",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(15.dp)
                                     )
@@ -577,111 +586,6 @@ fun HomeScreen(
             }
         }
 
-        // On This Day Card (حدث في مثل هذا اليوم حسب الهاتف)
-        item {
-            val phoneTodayEvents = remember(currentTimeMillis) {
-                com.example.data.local.OnThisDayDataset.getEventsForPhoneToday()
-            }
-            val primaryEvent = phoneTodayEvents.events.firstOrNull()
-
-            if (primaryEvent != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 5.dp)
-                        .clickable { onOpenOnThisDay() }
-                        .testTag("home_on_this_day_phone_card"),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)),
-                    border = BorderStroke(1.dp, GoldAccent.copy(alpha = 0.35f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.HistoryEdu,
-                                    contentDescription = null,
-                                    tint = GoldAccent,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = "في مثل هذا اليوم حسب الهاتف",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-
-                            TextButton(
-                                onClick = onOpenOnThisDay,
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                            ) {
-                                Text(
-                                    text = "عرض الكل",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GoldAccent
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = GoldAccent,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = GoldAccent.copy(alpha = 0.2f),
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Text(
-                                    text = com.example.data.services.DigitFormatter.format(primaryEvent.year, digitType),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GoldAccent,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                )
-                            }
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = primaryEvent.titleAr,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = primaryEvent.detailsAr,
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // Prayer Times List Cards
         val showMainPrayer = sections.find { it.id == "main_prayer" }?.isEnabled ?: true
         if (showMainPrayer) {
@@ -813,54 +717,6 @@ fun HomeScreen(
     }
 
 
-        // Fasting (Siyam) Info Card
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "الإمساك (الفجر)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            text = prayerTimes?.let { timeFormatter.format(Date(it.fajr)) } ?: "--:--",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Divider(
-                        modifier = Modifier
-                            .height(28.dp)
-                            .width(1.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                    )
-
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "الإفطار (المغرب)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            text = prayerTimes?.let { timeFormatter.format(Date(it.maghrib)) } ?: "--:--",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GoldAccent
-                        )
-                    }
-                }
-            }
-        }
-
         // Post-Prayer Athkar Reminder on Screen Banner (مثل 5 دقائق بعد الصلاة)
         if (postPrayerReminderVisible) {
             item {
@@ -975,288 +831,6 @@ fun HomeScreen(
                 }
             }
         }
-
-        // Dedicated Home Widget Preview Card (Matching Screenshot & user request)
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("home_screen_widget_card")
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFFA040).copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Widgets,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFFA040)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "ويدجت مواقيت الصلاة (Widgets)",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "معاينة الويدجت المطور مع درجة الحرارة والعد التنازلي",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        FilledTonalButton(
-                            onClick = onOpenWidgetsStudio,
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Icon(Icons.Filled.Tune, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("تخصيص وإضافة", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Embedded Mini Replica of the Widget (as in screenshot)
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenWidgetsStudio() }
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color(0xFF242F23), Color(0xFF161E16), Color(0xFF0D130D))
-                                    )
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                // Top row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.Top
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = "$remMinutes دقيقة",
-                                            fontSize = 22.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFFFFA040)
-                                        )
-                                        Text(
-                                            text = "حتى ${nextPrayer.arName} @ ${timeFormatter.format(Date(nextPrayerMillis))}",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = "${selectedCity.nameAr} • ${weatherInfo.temperatureC.toInt()}°C ☀️",
-                                            fontSize = 11.sp,
-                                            color = Color.White.copy(alpha = 0.8f)
-                                        )
-                                    }
-
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            text = hijriDate.formattedAr,
-                                            fontSize = 10.sp,
-                                            color = Color.White.copy(alpha = 0.9f)
-                                        )
-                                        Text(
-                                            text = gregorianDateStr,
-                                            fontSize = 10.sp,
-                                            color = Color.White.copy(alpha = 0.7f)
-                                        )
-                                        val timeOnly = remember(currentTimeMillis) {
-                                            SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentTimeMillis))
-                                        }
-                                        Text(
-                                            text = timeOnly,
-                                            fontSize = 28.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // 6 prayers row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    val miniPrayers = listOf(
-                                        Triple(PrayerType.ISHA, "العشاء", prayerTimes?.let { timeFormatter.format(Date(it.isha)) } ?: "19:31"),
-                                        Triple(PrayerType.MAGHRIB, "المغرب", prayerTimes?.let { timeFormatter.format(Date(it.maghrib)) } ?: "18:14"),
-                                        Triple(PrayerType.ASR, "العصر", prayerTimes?.let { timeFormatter.format(Date(it.asr)) } ?: "15:47"),
-                                        Triple(PrayerType.DHUHR, "الظهر", prayerTimes?.let { timeFormatter.format(Date(it.dhuhr)) } ?: "12:51"),
-                                        Triple(PrayerType.SUNRISE, "الشروق", prayerTimes?.let { timeFormatter.format(Date(it.sunrise)) } ?: "07:22"),
-                                        Triple(PrayerType.FAJR, "الفجر", prayerTimes?.let { timeFormatter.format(Date(it.fajr)) } ?: "05:56")
-                                    )
-                                    miniPrayers.forEach { (type, name, tStr) ->
-                                        val isNext = type == nextPrayer
-                                        val isSunrise = type == PrayerType.SUNRISE
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text(
-                                                text = name,
-                                                fontSize = 10.sp,
-                                                color = if (isNext) Color(0xFFFFA040) else Color.White.copy(alpha = 0.8f)
-                                            )
-                                            Text(
-                                                text = tStr,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = when {
-                                                    isSunrise -> Color(0xFF4ADE80)
-                                                    isNext -> Color(0xFFFFA040)
-                                                    else -> Color.White
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = "سبحان الله العظيم",
-                                    fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Direct Pin to Phone Home Screen (Outside Application)
-                    Button(
-                        onClick = {
-                            val appWidgetManager = context.getSystemService(android.appwidget.AppWidgetManager::class.java)
-                            val provider = android.content.ComponentName(context, com.example.widget.PrayerAppWidgetProvider::class.java)
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && appWidgetManager?.isRequestPinAppWidgetSupported == true) {
-                                com.example.widget.PrayerAppWidgetProvider.updateAllWidgets(context)
-                                appWidgetManager.requestPinAppWidget(provider, null, null)
-                                android.widget.Toast.makeText(context, "جاري فتح نافذة تثبيت الويدجت على شاشة هاتفك الرئيسية...", android.widget.Toast.LENGTH_LONG).show()
-                            } else {
-                                showPinWidgetDialog = true
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA040)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("pin_widget_outside_app_button")
-                    ) {
-                        Icon(Icons.Filled.AddBox, contentDescription = null, tint = Color.Black)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "تثبيت الويدجت على شاشة الهاتف الرئيسية (خارج التطبيق)",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        TextButton(onClick = { showPinWidgetDialog = true }) {
-                            Icon(Icons.Filled.HelpOutline, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("طريقة إضافة الويدجت يدوياً من لانشر الهاتف", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showPinWidgetDialog) {
-        AlertDialog(
-            onDismissRequest = { showPinWidgetDialog = false },
-            icon = {
-                Icon(Icons.Filled.Widgets, contentDescription = null, tint = Color(0xFFFFA040), modifier = Modifier.size(32.dp))
-            },
-            title = {
-                Text(
-                    text = "تشغيل الويدجت خارج التطبيق على شاشة الهاتف",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "يعمل ويدجت مواقيت الصلاة كتطبيق مصغر حقيقي (AppWidget) خارج التطبيق على واجهة وشاشة هاتفك الرئيسية:",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Divider(color = MaterialTheme.colorScheme.surfaceVariant)
-                    Text("1. اخرج من التطبيق واذهب إلى شاشة هاتفك الرئيسية (Home Screen).", fontSize = 12.sp)
-                    Text("2. اضغط مطولاً على أي مساحة فارغة في الشاشة الرئيسية.", fontSize = 12.sp)
-                    Text("3. اختر 'التطبيقات المصغرة' أو 'Widgets' من القائمة.", fontSize = 12.sp)
-                    Text("4. ابحث عن تطبيق 'صلاتي' أو 'ويدجت مواقيت الصلاة'.", fontSize = 12.sp)
-                    Text("5. اسحب الويدجت إلى الشاشة الرئيسية وضعه في المكان المفضل لديك.", fontSize = 12.sp)
-                    Text("★ سيعمل الويدجت بتوقيت حي محدث باستمرار ودرجة الحرارة دون الحاجة لفتح التطبيق!", fontSize = 11.sp, color = EmeraldLight, fontWeight = FontWeight.Bold)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val appWidgetManager = context.getSystemService(android.appwidget.AppWidgetManager::class.java)
-                        val provider = android.content.ComponentName(context, com.example.widget.PrayerAppWidgetProvider::class.java)
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && appWidgetManager?.isRequestPinAppWidgetSupported == true) {
-                            com.example.widget.PrayerAppWidgetProvider.updateAllWidgets(context)
-                            appWidgetManager.requestPinAppWidget(provider, null, null)
-                        }
-                        showPinWidgetDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA040))
-                ) {
-                    Text("إضافة تلقائية الآن", color = Color.Black, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPinWidgetDialog = false }) {
-                    Text("حسناً فهمت")
-                }
-            }
-        )
     }
     }
 }

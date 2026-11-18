@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -53,8 +54,12 @@ fun RecitationCorrectorView(
     onPlayAudio: (url: String, title: String, subtitle: String) -> Unit,
     onStopAudio: () -> Unit,
     onLoadAyahs: suspend (Int) -> List<Ayah>,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    if (onBack != null) {
+        androidx.activity.compose.BackHandler(onBack = onBack)
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -172,6 +177,15 @@ fun RecitationCorrectorView(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "الرجوع للفهرس",
+                                tint = GoldAccent
+                            )
+                        }
+                    }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "مصحح التلاوة والتجويد الذكي",

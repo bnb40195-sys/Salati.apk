@@ -126,6 +126,41 @@ class AppPreferences(private val context: Context) {
     private val _fridaySecondAdhanSound = MutableStateFlow(prefs.getString("friday_second_sound", "friday_2") ?: "friday_2")
     val fridaySecondAdhanSound: StateFlow<String> = _fridaySecondAdhanSound.asStateFlow()
 
+    private val _fridaySecondAdhanMinutes = MutableStateFlow(prefs.getInt("friday_second_min", 0))
+    val fridaySecondAdhanMinutes: StateFlow<Int> = _fridaySecondAdhanMinutes.asStateFlow()
+
+    // Per-prayer adhan sounds (Fajr, Dhuhr, Asr, Maghrib, Isha)
+    private val _fajrAdhanSound = MutableStateFlow(prefs.getString("adhan_sound_fajr", "makkah") ?: "makkah")
+    val fajrAdhanSound: StateFlow<String> = _fajrAdhanSound.asStateFlow()
+
+    private val _dhuhrAdhanSound = MutableStateFlow(prefs.getString("adhan_sound_dhuhr", "makkah") ?: "makkah")
+    val dhuhrAdhanSound: StateFlow<String> = _dhuhrAdhanSound.asStateFlow()
+
+    private val _asrAdhanSound = MutableStateFlow(prefs.getString("adhan_sound_asr", "makkah") ?: "makkah")
+    val asrAdhanSound: StateFlow<String> = _asrAdhanSound.asStateFlow()
+
+    private val _maghribAdhanSound = MutableStateFlow(prefs.getString("adhan_sound_maghrib", "makkah") ?: "makkah")
+    val maghribAdhanSound: StateFlow<String> = _maghribAdhanSound.asStateFlow()
+
+    private val _ishaAdhanSound = MutableStateFlow(prefs.getString("adhan_sound_isha", "makkah") ?: "makkah")
+    val ishaAdhanSound: StateFlow<String> = _ishaAdhanSound.asStateFlow()
+
+    // Custom reminder texts for Salawat, Dua, Morning/Evening & Post-prayer Athkar
+    private val _salawatCustomText = MutableStateFlow(prefs.getString("salawat_custom_text", "اللهم صل وسلم على نبينا محمد ﷺ") ?: "اللهم صل وسلم على نبينا محمد ﷺ")
+    val salawatCustomText: StateFlow<String> = _salawatCustomText.asStateFlow()
+
+    private val _prePrayerDuaCustomText = MutableStateFlow(prefs.getString("pre_prayer_dua_text", "اللهم إني أسألك الهدى والتقى والعفاف والغنى") ?: "اللهم إني أسألك الهدى والتقى والعفاف والغنى")
+    val prePrayerDuaCustomText: StateFlow<String> = _prePrayerDuaCustomText.asStateFlow()
+
+    private val _morningAthkarCustomText = MutableStateFlow(prefs.getString("morning_athkar_text", "أصبحنا وأصبح الملك لله والحمد لله ولا إله إلا الله وحده لا شريك له") ?: "أصبحنا وأصبح الملك لله والحمد لله ولا إله إلا الله وحده لا شريك له")
+    val morningAthkarCustomText: StateFlow<String> = _morningAthkarCustomText.asStateFlow()
+
+    private val _eveningAthkarCustomText = MutableStateFlow(prefs.getString("evening_athkar_text", "أمسينا وأمسى الملك لله والحمد لله ولا إله إلا الله وحده لا شريك له") ?: "أمسينا وأمسى الملك لله والحمد لله ولا إله إلا الله وحده لا شريك له")
+    val eveningAthkarCustomText: StateFlow<String> = _eveningAthkarCustomText.asStateFlow()
+
+    private val _postPrayerCustomText = MutableStateFlow(prefs.getString("post_prayer_text", "أستغفر الله (٣ مرات)، اللهم أنت السلام ومنك السلام، تباركت يا ذا الجلال والإكرام") ?: "أستغفر الله (٣ مرات)، اللهم أنت السلام ومنك السلام، تباركت يا ذا الجلال والإكرام")
+    val postPrayerCustomText: StateFlow<String> = _postPrayerCustomText.asStateFlow()
+
     // Reminders
     private val _postPrayerAthkarEnabled = MutableStateFlow(prefs.getBoolean("post_prayer_athkar", true))
     val postPrayerAthkarEnabled: StateFlow<Boolean> = _postPrayerAthkarEnabled.asStateFlow()
@@ -181,6 +216,9 @@ class AppPreferences(private val context: Context) {
     private val _morningAthkarSound = MutableStateFlow(prefs.getString("morning_athkar_sound", "athkar_morning_voice") ?: "athkar_morning_voice")
     val morningAthkarSound: StateFlow<String> = _morningAthkarSound.asStateFlow()
 
+    private val _morningAthkarSoundEnabled = MutableStateFlow(prefs.getBoolean("morning_athkar_sound_enabled", true))
+    val morningAthkarSoundEnabled: StateFlow<Boolean> = _morningAthkarSoundEnabled.asStateFlow()
+
     private val _eveningAthkarReminder = MutableStateFlow(prefs.getBoolean("evening_athkar_rem", true))
     val eveningAthkarReminder: StateFlow<Boolean> = _eveningAthkarReminder.asStateFlow()
 
@@ -189,6 +227,9 @@ class AppPreferences(private val context: Context) {
 
     private val _eveningAthkarSound = MutableStateFlow(prefs.getString("evening_athkar_sound", "athkar_evening_voice") ?: "athkar_evening_voice")
     val eveningAthkarSound: StateFlow<String> = _eveningAthkarSound.asStateFlow()
+
+    private val _eveningAthkarSoundEnabled = MutableStateFlow(prefs.getBoolean("evening_athkar_sound_enabled", true))
+    val eveningAthkarSoundEnabled: StateFlow<Boolean> = _eveningAthkarSoundEnabled.asStateFlow()
 
     // Post-Prayer Athkar Reminder Options (e.g. at 5:00 AM or after prayer)
     private val _postPrayerAthkarReminder = MutableStateFlow(prefs.getBoolean("post_prayer_athkar_rem", true))
@@ -231,14 +272,22 @@ class AppPreferences(private val context: Context) {
     private val _developerSecurityAnswer = MutableStateFlow(prefs.getString("dev_sec_ans", "صلاتي") ?: "صلاتي")
     val developerSecurityAnswer: StateFlow<String> = _developerSecurityAnswer.asStateFlow()
 
-    private val _isDeveloperUnlocked = MutableStateFlow(prefs.getBoolean("dev_unlocked", false))
+    private val _isAccountAuthenticated = MutableStateFlow(prefs.getBoolean("account_authenticated", false))
+    val isAccountAuthenticated: StateFlow<Boolean> = _isAccountAuthenticated.asStateFlow()
+
+    private val _accountUserName = MutableStateFlow(prefs.getString("account_user_name", "") ?: "")
+    val accountUserName: StateFlow<String> = _accountUserName.asStateFlow()
+
+    private val _isDeveloperUnlocked = MutableStateFlow(
+        prefs.getBoolean("account_authenticated", false) && prefs.getBoolean("dev_unlocked", false)
+    )
     val isDeveloperUnlocked: StateFlow<Boolean> = _isDeveloperUnlocked.asStateFlow()
 
-    // Google Account Registration / Sign-In
-    private val _googleAccountEmail = MutableStateFlow(prefs.getString("google_account_email", "bnb40195@gmail.com") ?: "bnb40195@gmail.com")
+    // Account Email Registration / Sign-In
+    private val _googleAccountEmail = MutableStateFlow(prefs.getString("google_account_email", "") ?: "")
     val googleAccountEmail: StateFlow<String> = _googleAccountEmail.asStateFlow()
 
-    private val _isGoogleSignedIn = MutableStateFlow(prefs.getBoolean("google_signed_in", true))
+    private val _isGoogleSignedIn = MutableStateFlow(prefs.getBoolean("account_authenticated", false))
     val isGoogleSignedIn: StateFlow<Boolean> = _isGoogleSignedIn.asStateFlow()
 
     // Athkar Reminder Mode: "both" (voice & text), "voice", "text"
@@ -333,10 +382,10 @@ class AppPreferences(private val context: Context) {
     }
 
     private fun loadCity(): CityLocation {
-        val nameAr = prefs.getString("city_name_ar", "مكة المكرمة") ?: "مكة المكرمة"
-        val nameEn = prefs.getString("city_name_en", "Mecca") ?: "Mecca"
-        val countryAr = prefs.getString("country_ar", "المملكة العربية السعودية") ?: "المملكة العربية السعودية"
-        val countryEn = prefs.getString("country_en", "Saudi Arabia") ?: "Saudi Arabia"
+        val nameAr = prefs.getString("city_name_ar", "جاري تحديد الموقع...") ?: "جاري تحديد الموقع..."
+        val nameEn = prefs.getString("city_name_en", "Detecting...") ?: "Detecting..."
+        val countryAr = prefs.getString("country_ar", "الموقع الجغرافي الحقيقي") ?: "الموقع الجغرافي الحقيقي"
+        val countryEn = prefs.getString("country_en", "") ?: ""
         val lat = prefs.getFloat("lat", 21.4225f).toDouble()
         val lng = prefs.getFloat("lng", 39.8262f).toDouble()
         val tz = prefs.getFloat("tz", 3.0f).toDouble()
@@ -474,17 +523,19 @@ class AppPreferences(private val context: Context) {
         _prePrayerBigMessage.value = bigMessage
     }
 
-    fun setFridaySettings(first: Boolean, second: Boolean, soundOnly: Boolean, firstMinBefore: Int = 20) {
+    fun setFridaySettings(first: Boolean, second: Boolean, soundOnly: Boolean, firstMinBefore: Int = 20, secondMin: Int = 0) {
         prefs.edit()
             .putBoolean("friday_first_adhan", first)
             .putBoolean("friday_second_adhan", second)
             .putBoolean("friday_sound_only", soundOnly)
             .putInt("friday_first_min_before", firstMinBefore)
+            .putInt("friday_second_min", secondMin)
             .apply()
         _fridayFirstAdhan.value = first
         _fridaySecondAdhan.value = second
         _fridaySoundOnly.value = soundOnly
         _fridayFirstAdhanMinutesBefore.value = firstMinBefore
+        _fridaySecondAdhanMinutes.value = secondMin
     }
 
     fun setFridayFirstAdhanSound(soundId: String) {
@@ -495,6 +546,45 @@ class AppPreferences(private val context: Context) {
     fun setFridaySecondAdhanSound(soundId: String) {
         prefs.edit().putString("friday_second_sound", soundId).apply()
         _fridaySecondAdhanSound.value = soundId
+    }
+
+    fun setFridaySecondAdhanMinutes(mins: Int) {
+        prefs.edit().putInt("friday_second_min", mins).apply()
+        _fridaySecondAdhanMinutes.value = mins
+    }
+
+    fun setFridayMinutes(firstMinBefore: Int, secondMin: Int) {
+        prefs.edit()
+            .putInt("friday_first_min_before", firstMinBefore)
+            .putInt("friday_second_min", secondMin)
+            .apply()
+        _fridayFirstAdhanMinutesBefore.value = firstMinBefore
+        _fridaySecondAdhanMinutes.value = secondMin
+    }
+
+    fun setSalawatCustomText(text: String) {
+        prefs.edit().putString("salawat_custom_text", text).apply()
+        _salawatCustomText.value = text
+    }
+
+    fun setPrePrayerDuaCustomText(text: String) {
+        prefs.edit().putString("pre_prayer_dua_text", text).apply()
+        _prePrayerDuaCustomText.value = text
+    }
+
+    fun setMorningAthkarCustomText(text: String) {
+        prefs.edit().putString("morning_athkar_text", text).apply()
+        _morningAthkarCustomText.value = text
+    }
+
+    fun setEveningAthkarCustomText(text: String) {
+        prefs.edit().putString("evening_athkar_text", text).apply()
+        _eveningAthkarCustomText.value = text
+    }
+
+    fun setPostPrayerCustomText(text: String) {
+        prefs.edit().putString("post_prayer_text", text).apply()
+        _postPrayerCustomText.value = text
     }
 
     fun setSalawatSettings(enabled: Boolean, mode: String, intervalMinutes: Int) {
@@ -635,6 +725,47 @@ class AppPreferences(private val context: Context) {
         _eveningAthkarSound.value = soundId
     }
 
+    fun setMorningAthkarSoundEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("morning_athkar_sound_enabled", enabled).apply()
+        _morningAthkarSoundEnabled.value = enabled
+    }
+
+    fun setEveningAthkarSoundEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("evening_athkar_sound_enabled", enabled).apply()
+        _eveningAthkarSoundEnabled.value = enabled
+    }
+
+    fun setPrayerAdhanSound(prayerType: PrayerType, soundId: String) {
+        val key = when (prayerType) {
+            PrayerType.FAJR -> "adhan_sound_fajr"
+            PrayerType.DHUHR -> "adhan_sound_dhuhr"
+            PrayerType.ASR -> "adhan_sound_asr"
+            PrayerType.MAGHRIB -> "adhan_sound_maghrib"
+            PrayerType.ISHA -> "adhan_sound_isha"
+            else -> "selected_muadhin"
+        }
+        prefs.edit().putString(key, soundId).apply()
+        when (prayerType) {
+            PrayerType.FAJR -> _fajrAdhanSound.value = soundId
+            PrayerType.DHUHR -> _dhuhrAdhanSound.value = soundId
+            PrayerType.ASR -> _asrAdhanSound.value = soundId
+            PrayerType.MAGHRIB -> _maghribAdhanSound.value = soundId
+            PrayerType.ISHA -> _ishaAdhanSound.value = soundId
+            else -> _selectedMuadhin.value = soundId
+        }
+    }
+
+    fun getPrayerAdhanSound(prayerType: PrayerType): String {
+        return when (prayerType) {
+            PrayerType.FAJR -> _fajrAdhanSound.value
+            PrayerType.DHUHR -> _dhuhrAdhanSound.value
+            PrayerType.ASR -> _asrAdhanSound.value
+            PrayerType.MAGHRIB -> _maghribAdhanSound.value
+            PrayerType.ISHA -> _ishaAdhanSound.value
+            else -> _selectedMuadhin.value
+        }
+    }
+
     fun setPostPrayerAthkarSettings(enabled: Boolean, time: String) {
         prefs.edit()
             .putBoolean("post_prayer_athkar_rem", enabled)
@@ -695,6 +826,102 @@ class AppPreferences(private val context: Context) {
         val isMatch = cleanEmail.equals("bnb40195@sat", ignoreCase = true) && (cleanAnswer == "صلاتي")
         setDeveloperUnlocked(isMatch)
         return isMatch
+    }
+
+    fun registerUserAccount(name: String, email: String, password: String): Pair<Boolean, String?> {
+        val cleanName = name.trim()
+        val cleanEmail = email.trim()
+        val cleanPass = password.trim()
+        if (cleanEmail.isEmpty() || !cleanEmail.contains("@")) {
+            return false to "يرجى إدخال بريد إلكتروني صحيح"
+        }
+        if (cleanPass.isEmpty()) {
+            return false to "يرجى إدخال كلمة المرور"
+        }
+        val isMakerEmail = cleanEmail.equals("bnb40195@sat", ignoreCase = true)
+        if (isMakerEmail && cleanPass != "صلاتي") {
+            return false to "كلمة المرور غير صحيحة"
+        }
+        val isMakerMatch = isMakerEmail && cleanPass == "صلاتي"
+        val keyEmail = cleanEmail.lowercase()
+        prefs.edit()
+            .putString("account_pass_$keyEmail", cleanPass)
+            .putString("account_name_$keyEmail", cleanName)
+            .putString("account_user_name", cleanName.ifEmpty { cleanEmail.substringBefore("@") })
+            .putString("google_account_email", cleanEmail)
+            .putBoolean("google_signed_in", true)
+            .putBoolean("account_authenticated", true)
+            .putBoolean("dev_unlocked", isMakerMatch)
+            .apply()
+        _accountUserName.value = cleanName.ifEmpty { cleanEmail.substringBefore("@") }
+        _googleAccountEmail.value = cleanEmail
+        _isGoogleSignedIn.value = true
+        _isAccountAuthenticated.value = true
+        _isDeveloperUnlocked.value = isMakerMatch
+        return true to null
+    }
+
+    fun signInUserAccount(email: String, password: String): Pair<Boolean, String?> {
+        val cleanEmail = email.trim()
+        val cleanPass = password.trim()
+        if (cleanEmail.isEmpty() || !cleanEmail.contains("@")) {
+            return false to "يرجى إدخال بريد إلكتروني صحيح"
+        }
+        if (cleanPass.isEmpty()) {
+            return false to "يرجى إدخال كلمة المرور"
+        }
+        val isMakerEmail = cleanEmail.equals("bnb40195@sat", ignoreCase = true)
+        if (isMakerEmail) {
+            if (cleanPass != "صلاتي") {
+                return false to "كلمة المرور غير صحيحة"
+            }
+            prefs.edit()
+                .putString("account_user_name", "صانع التطبيق")
+                .putString("google_account_email", cleanEmail)
+                .putBoolean("google_signed_in", true)
+                .putBoolean("account_authenticated", true)
+                .putBoolean("dev_unlocked", true)
+                .apply()
+            _accountUserName.value = "صانع التطبيق"
+            _googleAccountEmail.value = cleanEmail
+            _isGoogleSignedIn.value = true
+            _isAccountAuthenticated.value = true
+            _isDeveloperUnlocked.value = true
+            return true to null
+        }
+
+        val keyEmail = cleanEmail.lowercase()
+        val storedPass = prefs.getString("account_pass_$keyEmail", null)
+        if (storedPass != null && storedPass != cleanPass) {
+            return false to "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+        }
+        val savedName = prefs.getString("account_name_$keyEmail", "") ?: ""
+        val displayName = savedName.ifEmpty { cleanEmail.substringBefore("@") }
+        prefs.edit()
+            .putString("account_pass_$keyEmail", cleanPass)
+            .putString("account_user_name", displayName)
+            .putString("google_account_email", cleanEmail)
+            .putBoolean("google_signed_in", true)
+            .putBoolean("account_authenticated", true)
+            .putBoolean("dev_unlocked", false)
+            .apply()
+        _accountUserName.value = displayName
+        _googleAccountEmail.value = cleanEmail
+        _isGoogleSignedIn.value = true
+        _isAccountAuthenticated.value = true
+        _isDeveloperUnlocked.value = false
+        return true to null
+    }
+
+    fun logoutAccount() {
+        prefs.edit()
+            .putBoolean("account_authenticated", false)
+            .putBoolean("google_signed_in", false)
+            .putBoolean("dev_unlocked", false)
+            .apply()
+        _isAccountAuthenticated.value = false
+        _isGoogleSignedIn.value = false
+        _isDeveloperUnlocked.value = false
     }
 
     fun setPostPrayerDelayMinutes(mins: Int) {

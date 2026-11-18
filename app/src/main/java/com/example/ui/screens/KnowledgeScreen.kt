@@ -33,7 +33,7 @@ import com.example.ui.theme.GoldAccent
 fun KnowledgeScreen(
     prophets: List<ProphetStory>,
     tawbahStories: List<TawbahStory>,
-    capitals: List<CapitalInfo>,
+    capitals: List<CapitalInfo> = emptyList(),
     battles: List<BattleInfo>,
     inventions: List<InventionInfo>,
     qas: List<IslamicQA>,
@@ -66,7 +66,6 @@ fun KnowledgeScreen(
         "قصص الأنبياء (${prophets.size})",
         "قصص التوبة (${tawbahStories.size})",
         "الغزوات والمعارك (${battles.size})",
-        "العواصم الإسلامية (${capitals.size})",
         "اختراعات المسلمين (${inventions.size})",
         "أسئلة دينية (${qas.size})",
         "أسئلة عامة (${generalQAs.size})"
@@ -701,68 +700,6 @@ fun KnowledgeScreen(
                 }
 
                 3 -> {
-                    // Islamic Capitals
-                    val filteredCapitals = if (searchQuery.isBlank()) capitals else capitals.filter {
-                        it.nameAr.contains(searchQuery, ignoreCase = true) ||
-                                it.countryAr.contains(searchQuery, ignoreCase = true) ||
-                                it.howIslamArrivedAr.contains(searchQuery, ignoreCase = true)
-                    }
-
-                    items(filteredCapitals, key = { it.id }) { c ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(text = c.nameAr, fontSize = titleSize, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text(text = "${c.countryAr} (${c.nameEn})", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
-                                        Text(
-                                            text = "UTC ${c.utcOffset}",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = GoldAccent,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = "العملة: ${c.currencyAr}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(text = "السكان: ${c.population}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(text = "كيف دخل الإسلام:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(text = c.howIslamArrivedAr, fontSize = baseTextSize, color = MaterialTheme.colorScheme.onSurface, lineHeight = (baseTextSize.value * 1.5).sp)
-                            }
-                        }
-                    }
-                }
-
-                4 -> {
                     // Muslim Inventions
                     val filteredInventions = inventions.filter { inv ->
                         val matchesField = (selectedInventionField == "الكل" || inv.fieldAr == selectedInventionField)
@@ -1001,8 +938,8 @@ fun KnowledgeScreen(
                     }
                 }
 
-                5 -> {
-                    // 5: أسئلة دينية
+                4 -> {
+                    // 4: أسئلة دينية
                     item {
                         Card(
                             modifier = Modifier
@@ -1195,8 +1132,8 @@ fun KnowledgeScreen(
                     }
                 }
 
-                6 -> {
-                    // 6: أسئلة عامة وثقافية (New General Questions Section!)
+                5 -> {
+                    // 5: أسئلة عامة وثقافية (New General Questions Section!)
                     item {
                         Card(
                             modifier = Modifier
