@@ -38,6 +38,7 @@ import com.example.data.services.RecitationEvaluationResult
 import com.example.data.services.SpeechRecognitionState
 import com.example.ui.theme.EmeraldLight
 import com.example.ui.theme.GoldAccent
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -333,7 +334,7 @@ fun SmartRecitationCorrectionScreen(
                             // Listen to Reciter Button
                             FilledTonalButton(
                                 onClick = {
-                                    val formattedNum = String.format("%03d%03d", selectedSurah.number, currentAyah.numberInSurah)
+                                    val formattedNum = String.format(Locale.US, "%03d%03d", selectedSurah.number, currentAyah.numberInSurah)
                                     val audioUrl = "https://everyayah.com/data/Alafasy_128kbps/$formattedNum.mp3"
                                     onPlayAyahAudio(audioUrl, "تلاوة بصوت ${selectedQari.nameAr}")
                                 },

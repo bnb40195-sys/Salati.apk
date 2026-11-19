@@ -520,7 +520,7 @@ class CustomContentManager(context: Context) {
     // 6. ISLAMIC Q&A MANAGEMENT
     // ==========================================
     private fun loadIslamicQAs(): List<IslamicQA> {
-        val jsonStr = prefs.getString("custom_qa_v3", null)
+        val jsonStr = prefs.getString("custom_qa_v3", null) ?: prefs.getString("custom_qa_v2", null)
         if (jsonStr == null) {
             return QuestionsDataset.religiousQuestions
         }
@@ -558,7 +558,7 @@ class CustomContentManager(context: Context) {
             obj.put("isCustom", item.isCustom)
             array.put(obj)
         }
-        prefs.edit().putString("custom_qa_v2", array.toString()).apply()
+        prefs.edit().putString("custom_qa_v3", array.toString()).apply()
         _islamicQAs.value = list
     }
 

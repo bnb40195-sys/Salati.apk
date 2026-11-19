@@ -571,10 +571,10 @@ fun SunnahScreen(
                                 // Copy Button
                                 IconButton(
                                     onClick = {
-                                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                                         val clipText = "عن ${hadith.narratorAr} قال: قال رسول الله ﷺ:\n\n«${hadith.textAr}»\n\n[المصدر: ${hadith.bookAr} - حكم الحديث: ${hadith.gradeAr}]"
                                         val clip = ClipData.newPlainText("حديث نبوي", clipText)
-                                        cm.setPrimaryClip(clip)
+                                        cm?.setPrimaryClip(clip)
                                         Toast.makeText(context, "تم نسخ الحديث الشريف", Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.size(34.dp)
@@ -596,7 +596,11 @@ fun SunnahScreen(
                                             putExtra(Intent.EXTRA_TEXT, shareText)
                                             type = "text/plain"
                                         }
-                                        context.startActivity(Intent.createChooser(sendIntent, "مشاركة الحديث الشريف"))
+                                        try {
+                                            context.startActivity(Intent.createChooser(sendIntent, "مشاركة الحديث الشريف"))
+                                        } catch (_: Exception) {
+                                            Toast.makeText(context, "لا يوجد تطبيق متاح للمشاركة", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     modifier = Modifier.size(34.dp)
                                 ) {

@@ -8,6 +8,7 @@ import com.example.data.models.*
 import com.example.data.services.WeatherInfo
 import com.example.ui.screens.*
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun SubScreenDispatcher(
@@ -467,7 +468,7 @@ fun SubScreenDispatcher(
                 lastReadSurahNumber = lastReadSurah,
                 onSelectQari = { qari -> appPreferences.setSelectedQariId(qari.id) },
                 onPlaySurah = { surah, qari ->
-                    val formattedNum = String.format("%03d", surah.number)
+                    val formattedNum = String.format(Locale.US, "%03d", surah.number)
                     val audioUrl = "${qari.serverUrl}$formattedNum.mp3"
                     audioPlayerManager.playAudio(
                         url = audioUrl,

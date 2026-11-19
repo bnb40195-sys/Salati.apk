@@ -173,13 +173,17 @@ class AudioPlayerManager(private val context: Context) {
         stopProgressTracker()
         progressJob = scope.launch {
             while (isActive) {
-                mediaPlayer?.let { mp ->
-                    if (mp.isPlaying) {
-                        _playbackState.value = _playbackState.value.copy(
-                            currentPositionMs = mp.currentPosition,
-                            durationMs = mp.duration
-                        )
+                try {
+                    mediaPlayer?.let { mp ->
+                        if (isPrepared && mp.isPlaying) {
+                            _playbackState.value = _playbackState.value.copy(
+                                currentPositionMs = mp.currentPosition,
+                                durationMs = mp.duration
+                            )
+                        }
                     }
+                } catch (_: Exception) {
+                    // MediaPlayer may be reset or released concurrently
                 }
                 delay(500)
             }

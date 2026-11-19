@@ -1,9 +1,11 @@
 package com.example.ui.screens
 
+import android.os.Build
 import android.widget.Toast
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import com.example.widget.PrayerAppWidgetProvider
+import java.util.Locale
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -359,7 +361,7 @@ fun SettingsScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "خط العرض: ${String.format("%.4f", selectedCity.latitude)} • خط الطول: ${String.format("%.4f", selectedCity.longitude)}",
+                                    text = "خط العرض: ${String.format(Locale.US, "%.4f", selectedCity.latitude)} • خط الطول: ${String.format(Locale.US, "%.4f", selectedCity.longitude)}",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1297,7 +1299,7 @@ fun SettingsScreen(
                             onClick = {
                                 val appWidgetManager = AppWidgetManager.getInstance(context)
                                 val myProvider = ComponentName(context, PrayerAppWidgetProvider::class.java)
-                                if (appWidgetManager.isRequestPinAppWidgetSupported) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && appWidgetManager.isRequestPinAppWidgetSupported) {
                                     appWidgetManager.requestPinAppWidget(myProvider, null, null)
                                     Toast.makeText(context, "جاري طلب تثبيت $wTitle على شاشة هاتفك", Toast.LENGTH_SHORT).show()
                                 } else {

@@ -131,7 +131,7 @@ fun HomeScreen(
     val remHours = remainingSeconds / 3600
     val remMinutes = (remainingSeconds % 3600) / 60
     val remSecs = remainingSeconds % 60
-    val rawCountdown = String.format("%02d:%02d:%02d", remHours, remMinutes, remSecs)
+    val rawCountdown = String.format(Locale.US, "%02d:%02d:%02d", remHours, remMinutes, remSecs)
     val formattedCountdown = com.example.data.services.DigitFormatter.format(rawCountdown, digitType)
 
     val timeFormatter = remember(timeFormat) {

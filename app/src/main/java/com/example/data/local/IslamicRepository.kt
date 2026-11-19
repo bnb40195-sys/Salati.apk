@@ -159,7 +159,9 @@ class IslamicRepository {
             val url = if (customMawaqitUrl.isNotBlank() && customMawaqitUrl.startsWith("http")) {
                 customMawaqitUrl
             } else {
-                "https://api.aladhan.com/v1/timingsByCity?city=${city.nameEn}&country=${city.countryEn}&method=$methodId"
+                val encodedCity = java.net.URLEncoder.encode(city.nameEn, "UTF-8")
+                val encodedCountry = java.net.URLEncoder.encode(city.countryEn, "UTF-8")
+                "https://api.aladhan.com/v1/timingsByCity?city=$encodedCity&country=$encodedCountry&method=$methodId"
             }
             val request = Request.Builder().url(url).build()
             val response = httpClient.newCall(request).execute()

@@ -43,6 +43,7 @@ import com.example.data.models.Surah
 import com.example.data.services.*
 import com.example.ui.theme.EmeraldLight
 import com.example.ui.theme.GoldAccent
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -349,7 +350,7 @@ fun RecitationCorrectorView(
                             if (isPlaying) {
                                 onStopAudio()
                             } else {
-                                val formattedNum = String.format("%03d%03d", selectedSurah.number, currentAyah.numberInSurah)
+                                val formattedNum = String.format(Locale.US, "%03d%03d", selectedSurah.number, currentAyah.numberInSurah)
                                 val audioUrl = "https://everyayah.com/data/Alafasy_128kbps/$formattedNum.mp3"
                                 onPlayAudio(audioUrl, "سورة ${selectedSurah.nameAr} - آية ${currentAyah.numberInSurah}", "بصوت ${selectedQari.nameAr}")
                             }
