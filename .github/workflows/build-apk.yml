@@ -47,21 +47,102 @@ jobs:
           java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        shell: bash
+        run: |
+          set -e
+          set +o pipefail
+
+          CANDIDATE_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ -n "$CANDIDATE_SDK" ] && [ -d "$CANDIDATE_SDK" ] && \
+             mkdir -p "$CANDIDATE_SDK/licenses" 2>/dev/null && \
+             touch "$CANDIDATE_SDK/licenses/.write_test" 2>/dev/null; then
+            rm -f "$CANDIDATE_SDK/licenses/.write_test"
+            SDK_DIR="$CANDIDATE_SDK"
+          else
+            SDK_DIR="$HOME/android-sdk"
+            mkdir -p "$SDK_DIR/licenses"
+          fi
+
+          echo "Using Android SDK directory: $SDK_DIR"
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
+          export ANDROID_HOME="$SDK_DIR"
+          export ANDROID_SDK_ROOT="$SDK_DIR"
+
+          SDKMANAGER=""
+          for candidate in \
+            "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK_DIR"/cmdline-tools/*/bin/sdkmanager \
+            /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager \
+            /usr/local/lib/android/sdk/cmdline-tools/*/bin/sdkmanager \
+            "$(command -v sdkmanager 2>/dev/null || true)"; do
+            if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+              if "$candidate" --sdk_root="$SDK_DIR" --version >/dev/null 2>&1; then
+                SDKMANAGER="$candidate"
+                break
+              fi
+            fi
+          done
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Working sdkmanager not found. Downloading Android Command-line Tools..."
+            TMP_DIR=$(mktemp -d)
+            CMDLINE_ZIP=$(curl -fsSL --retry 3 https://dl.google.com/android/repository/repository2-1.xml \
+              | grep -oE 'commandlinetools-linux-[0-9]+_latest\.zip' \
+              | head -n 1 || true)
+            if [ -n "$CMDLINE_ZIP" ]; then
+              DOWNLOAD_URL="https://dl.google.com/android/repository/${CMDLINE_ZIP}"
+            else
+              DOWNLOAD_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            fi
+            echo "Downloading $DOWNLOAD_URL"
+            curl -fSL --retry 3 --retry-delay 5 "$DOWNLOAD_URL" -o "$TMP_DIR/cmdline-tools.zip"
+            unzip -q "$TMP_DIR/cmdline-tools.zip" -d "$TMP_DIR/extract"
+            mkdir -p "$SDK_DIR/cmdline-tools"
+            rm -rf "$SDK_DIR/cmdline-tools/latest"
+            mv "$TMP_DIR/extract/cmdline-tools" "$SDK_DIR/cmdline-tools/latest"
+            rm -rf "$TMP_DIR"
+            SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+            chmod +x "$SDKMANAGER"
+          fi
+
+          echo "Using sdkmanager: $SDKMANAGER"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "$SDK_DIR/platform-tools" >> "$GITHUB_PATH"
+
+          printf '%s\n' \
+            '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
+            'd56f5187479451eabf01fb78af6dfcb131a6481e' \
+            '8933bad161af4178b1185d1a37fbf41ea5269c55' \
+            > "$SDK_DIR/licenses/android-sdk-license"
+          printf '%s\n' '84831b9409646a918e30573bab4c9c91346d8abd' > "$SDK_DIR/licenses/android-sdk-preview-license"
+          printf '%s\n' '33b6a2b64607f11b759f320ef9dff4ae5c47d97a' > "$SDK_DIR/licenses/google-gdk-license"
+          printf '%s\n' '859f317696f67ef3d7f050a5560e7834b43903' > "$SDK_DIR/licenses/android-sdk-arm-dbt-license"
+          printf '%s\n' '601085b94cd77f0b54ff86406957099ebe79c4d6' > "$SDK_DIR/licenses/android-googletv-license"
+          printf '%s\n' 'ceff83576aac4f7f37cb98fe189e9fb3c49d3b81' > "$SDK_DIR/licenses/android-googlexr-license"
+
+          yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses >/dev/null 2>&1 || true
+
+          echo "Installing Android SDK platforms & build-tools..."
+          "$SDKMANAGER" --sdk_root="$SDK_DIR" --install \
+            "platform-tools" \
+            "build-tools;36.0.0" \
+            "platforms;android-36" \
+            "platforms;android-36.1" || {
+              echo "Combined install failed; retrying packages individually..."
+              "$SDKMANAGER" --sdk_root="$SDK_DIR" --install "platform-tools" || true
+              "$SDKMANAGER" --sdk_root="$SDK_DIR" --install "build-tools;36.0.0"
+              "$SDKMANAGER" --sdk_root="$SDK_DIR" --install "platforms;android-36" || true
+              "$SDKMANAGER" --sdk_root="$SDK_DIR" --install "platforms;android-36.1"
+            }
+
+          echo "Installed platforms:"
+          ls -1 "$SDK_DIR/platforms" 2>/dev/null || true
+          echo "Installed build-tools:"
+          ls -1 "$SDK_DIR/build-tools" 2>/dev/null || true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Accept Android SDK Licenses
-        run: |
-          SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          if [ -n "$SDK_DIR" ]; then
-            mkdir -p "$SDK_DIR/licenses"
-            SDKMANAGER=$(command -v sdkmanager || find "$SDK_DIR/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)
-            if [ -n "$SDKMANAGER" ]; then
-              yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-            fi
-          fi
 
       - name: Prepare Keystore and Environment
         run: |
@@ -87,7 +168,11 @@ jobs:
 
       - name: Align, Sign (V1+V2+V3) & Prepare APK Assets for Download
         id: prepare_apk
+        shell: bash
         run: |
+          set -e
+          set +o pipefail
+
           mkdir -p release_assets
           APK_PATH=$(find app/build/outputs/apk/debug -maxdepth 2 -type f -name "*.apk" ! -name "*-unsigned.apk" | head -n 1)
           if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
@@ -96,9 +181,15 @@ jobs:
           fi
 
           SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          BUILD_TOOLS_DIR=$(ls -d "$SDK_DIR/build-tools"/* 2>/dev/null | sort -V | tail -n 1)
+          BUILD_TOOLS_DIR=""
+          for dir in $(ls -d "$SDK_DIR/build-tools"/* 2>/dev/null | sort -Vr); do
+            if [ -x "$dir/zipalign" ] && [ -x "$dir/apksigner" ]; then
+              BUILD_TOOLS_DIR="$dir"
+              break
+            fi
+          done
           if [ -z "$BUILD_TOOLS_DIR" ]; then
-            echo "Error: Android build-tools not found!"
+            echo "Error: Android build-tools (zipalign/apksigner) not found in $SDK_DIR/build-tools!"
             exit 1
           fi
 
